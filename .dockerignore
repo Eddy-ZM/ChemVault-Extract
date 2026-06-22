@@ -1,12 +1,12 @@
 node_modules/
-.DS_Store
 .next/
 .open-next/
 .wrangler/
-.venv/
+.git/
+.env
+.DS_Store
 __pycache__/
 .pytest_cache/
-.env
-*.pyc
+services/api/.venv/
 dist/
 build/

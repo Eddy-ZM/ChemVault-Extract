@@ -48,7 +48,7 @@ jobs:
         run: npm ci
 
       - name: Build for Cloudflare Workers
-        run: npm run build:cloudflare -w apps/web
+        run: npm run cf:build -w apps/web
 
       - name: Deploy to Cloudflare Workers
-        run: npm run deploy:cloudflare -w apps/web
+        run: npm run cf:deploy -w apps/web

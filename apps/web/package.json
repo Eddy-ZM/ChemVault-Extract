@@ -6,9 +6,9 @@
     "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start --hostname 0.0.0.0",
-    "build:cloudflare": "opennextjs-cloudflare build",
-    "deploy:cloudflare": "opennextjs-cloudflare deploy",
-    "preview:cloudflare": "opennextjs-cloudflare preview"
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:deploy": "opennextjs-cloudflare build && wrangler deploy",
+    "cf:preview": "opennextjs-cloudflare build && wrangler dev"
   },
   "dependencies": {
     "@chemvault-extract/schemas": "file:../../packages/schemas",

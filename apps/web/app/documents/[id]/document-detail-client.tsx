@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate, statusLabel } from "@/lib/format";
 
-const visiblePipeline = ["queued", "parsing", "chunking", "review_ready"];
+const visiblePipeline = ["queued", "parsing", "extracting", "validating", "review_ready"];
 
 export function DocumentDetailClient({ initialDocument }: { initialDocument: Document }) {
   const [document, setDocument] = useState(initialDocument);
@@ -191,6 +191,9 @@ function JobStatusCard({
         <div className="flex gap-2">
           <Button asChild variant="outline" size="sm">
             <Link href="/documents">Documents</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href={latestJob ? `/documents/${latestJob.documentId}/review` : "/documents"}>Review</Link>
           </Button>
           <Button variant="outline" size="sm" onClick={onRefresh}>
             <RefreshCw data-icon="inline-start" />

@@ -1,14 +1,14 @@
 # ChemVault Extract
 
-Production-ready MVP foundation for ingesting chemistry papers, lab reports, and instrument-exported files into a structured extraction pipeline.
+Production-ready MVP foundation for ingesting chemistry papers, lab reports, and instrument-exported files into an AI Scientific Data Extraction / Research Intelligence pipeline.
 
-This project does not implement AI extraction yet. It includes the monorepo, Next.js frontend, FastAPI backend, PostgreSQL models, MinIO file storage, Redis job queue, and a Python worker that parses uploaded files into pages, blocks, tables, and chunks for future AI extraction.
+This project does not implement AI extraction yet and does not call the OpenAI API. It includes the monorepo, Next.js frontend, FastAPI backend, PostgreSQL models, MinIO file storage, Redis job queue, and a Python worker skeleton that advances queued jobs through the first-stage pipeline.
 
 ## Services
 
 - `web`: Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui-style components
 - `api`: FastAPI service with upload, document, job, and health endpoints
-- `worker`: Python Redis worker that downloads files from MinIO, parses them, stores pages/blocks/chunks, and moves jobs through `parsing`, `chunking`, `review_ready`
+- `worker`: Python Redis worker, packaged from `services/worker`, that reserves the future parsing/extraction boundary and currently moves jobs through `parsing` to `review_ready`
 - `postgres`: application database
 - `redis`: extraction job queue
 - `minio`: S3-compatible object storage
@@ -41,7 +41,7 @@ Default MinIO credentials are `chemvault` / `chemvault-secret`.
 2. Upload a supported file: PDF, DOCX, CSV, XLSX, TXT, or MD.
 3. The upload page shows the created document ID and extraction job ID.
 4. Open the document detail page to watch the worker update the job status.
-5. Use the `Overview`, `Pages`, `Blocks`, and `Chunks` tabs to inspect parsed content.
+5. Open `/documents/{document_id}/review` to see the placeholder review workspace.
 6. Confirm the object exists in MinIO under the `chemvault-documents` bucket.
 
 Check API health directly:
@@ -68,9 +68,47 @@ Expected response:
 - `GET /documents/{document_id}/chunks`
 - `GET /jobs/{job_id}`
 
-## Parsing
+## Database Foundation
 
-Supported parser inputs:
+Core tables:
+
+- `projects`
+- `documents`
+- `document_pages`
+- `document_blocks`
+- `document_chunks`
+- `extraction_jobs`
+- `extraction_runs`
+- `chemical_entities`
+- `reaction_records`
+- `measurement_records`
+- `review_items`
+- `export_jobs`
+
+Future extracted records include an `evidence` JSON column so chemistry entities, reactions, and measurements can point back to source pages, sections, and quotes.
+
+Example evidence payload:
+
+```json
+{
+  "page": 3,
+  "section": "Experimental",
+  "quote": "The product was obtained in 82% yield."
+}
+```
+
+## Parsing Pipeline
+
+The first-stage worker intentionally does not perform real parsing or AI extraction. For now, it:
+
+1. Pops queued job IDs from Redis.
+2. Updates the job to `parsing`.
+3. Updates the job to `review_ready`.
+4. Marks failures as `failed`.
+
+Parser modules are kept in `services/api/app/parsers` as the next integration point for Docling, GROBID, RDKit, LLM structured outputs, and PubChem enrichment. These modules are not used by the current worker to create extraction records.
+
+Planned parser inputs:
 
 - PDF: attempts Docling if installed, then falls back to `pypdf`
 - DOCX: extracts headings and paragraphs with `python-docx`
@@ -78,7 +116,7 @@ Supported parser inputs:
 - XLSX: parses each sheet as a table block
 - TXT / MD: extracts headings and paragraphs
 
-Scientific section detection recognizes common sections such as Abstract, Introduction, Experimental, Materials and Methods, Results, Discussion, Supporting Information, References, and Appendix. References are excluded from chunks by default.
+Scientific section detection recognizes common sections such as Abstract, Introduction, Experimental, Materials and Methods, Results, Discussion, Supporting Information, References, and Appendix. References will be excluded from chunks by default once parsing is enabled in the worker.
 
 ## Local Development Without Docker
 
@@ -89,7 +127,7 @@ npm install
 npm run dev
 ```
 
-Install backend dependencies:
+Run the API locally:
 
 ```bash
 cd services/api
@@ -100,7 +138,27 @@ pytest
 uvicorn app.main:app --reload
 ```
 
+Run the worker locally in a second shell:
+
+```bash
+cd services/api
+. .venv/bin/activate
+python -m app.workers.worker
+```
+
 For non-Docker frontend development, set `API_BASE_URL=http://localhost:8000` in `.env`.
+
+## Environment Variables
+
+- `DATABASE_URL`: SQLAlchemy database URL for PostgreSQL.
+- `REDIS_URL`: Redis connection URL.
+- `REDIS_QUEUE`: Redis list name used for extraction jobs.
+- `S3_ENDPOINT`: S3-compatible storage endpoint. Use MinIO locally.
+- `S3_ACCESS_KEY`: S3 access key.
+- `S3_SECRET_KEY`: S3 secret key.
+- `S3_BUCKET`: Bucket for uploaded source files.
+- `API_BASE_URL`: API origin used by the Next.js frontend or Cloudflare Worker gateway.
+- `WORKER_STEP_DELAY_SECONDS`: Optional local delay between worker status transitions.
 
 ## Cloudflare Frontend Deployment
 
@@ -108,7 +166,7 @@ The Next.js frontend is configured for Cloudflare Workers through OpenNext.
 
 Production target:
 
-- Worker: `chemvault-extract`
+- Worker: `chemvault-extract-web`
 - Custom domain: `app.chemvault.science`
 - Zone: `chemvault.science`
 
@@ -117,7 +175,7 @@ Every push to `main` that changes the frontend, shared packages, package lockfil
 
 Required GitHub secret:
 
-- `CLOUDFLARE_API_TOKEN`: a Cloudflare API token with permission to deploy the `chemvault-extract` Worker and manage its custom domain route.
+- `CLOUDFLARE_API_TOKEN`: a Cloudflare API token with permission to deploy the `chemvault-extract-web` Worker and manage its custom domain route.
 
 Suggested token permissions:
 
@@ -137,8 +195,8 @@ Manual deployment from an authenticated machine:
 
 ```bash
 npm ci
-npm run build:cloudflare -w apps/web
+npm run cf:build -w apps/web
 CLOUDFLARE_ACCOUNT_ID=20f69e8d2aebbadbff2b6ffa36efee50 \
   CLOUDFLARE_API_TOKEN=... \
-  npm run deploy:cloudflare -w apps/web
+  npm run cf:deploy -w apps/web
 ```

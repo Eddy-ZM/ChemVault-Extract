@@ -11,7 +11,6 @@ class DocumentStatus(StrEnum):
 class JobStatus(StrEnum):
     QUEUED = "queued"
     PARSING = "parsing"
-    CHUNKING = "chunking"
     EXTRACTING = "extracting"
     VALIDATING = "validating"
     REVIEW_READY = "review_ready"

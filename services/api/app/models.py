@@ -34,6 +34,7 @@ class Project(Base):
 
     user: Mapped[User] = relationship(back_populates="projects")
     documents: Mapped[list[Document]] = relationship(back_populates="project")
+    export_jobs: Mapped[list[ExportJob]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
 
 class Document(Base):
@@ -59,6 +60,16 @@ class Document(Base):
     pages: Mapped[list[DocumentPage]] = relationship(back_populates="document", cascade="all, delete-orphan")
     blocks: Mapped[list[DocumentBlock]] = relationship(back_populates="document", cascade="all, delete-orphan")
     chunks: Mapped[list[DocumentChunk]] = relationship(back_populates="document", cascade="all, delete-orphan")
+    chemical_entities: Mapped[list[ChemicalEntity]] = relationship(
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )
+    reaction_records: Mapped[list[ReactionRecord]] = relationship(back_populates="document", cascade="all, delete-orphan")
+    measurement_records: Mapped[list[MeasurementRecord]] = relationship(
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )
+    review_items: Mapped[list[ReviewItem]] = relationship(back_populates="document", cascade="all, delete-orphan")
 
 
 class ExtractionJob(Base):
@@ -137,3 +148,109 @@ class DocumentChunk(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     document: Mapped[Document] = relationship(back_populates="chunks")
+
+
+class ChemicalEntity(Base):
+    __tablename__ = "chemical_entities"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), index=True)
+    name: Mapped[str] = mapped_column(String(512), index=True)
+    entity_type: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    normalized_name: Mapped[str | None] = mapped_column(String(512), nullable=True, index=True)
+    identifiers: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    document: Mapped[Document] = relationship(back_populates="chemical_entities")
+
+
+class ReactionRecord(Base):
+    __tablename__ = "reaction_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), index=True)
+    reaction_name: Mapped[str | None] = mapped_column(String(512), nullable=True, index=True)
+    reactants: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    products: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    conditions: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    yield_text: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    document: Mapped[Document] = relationship(back_populates="reaction_records")
+
+
+class MeasurementRecord(Base):
+    __tablename__ = "measurement_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), index=True)
+    measurement_type: Mapped[str] = mapped_column(String(128), index=True)
+    subject: Mapped[str | None] = mapped_column(String(512), nullable=True, index=True)
+    value_text: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    value_numeric: Mapped[float | None] = mapped_column(Float, nullable=True)
+    unit: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    conditions: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    document: Mapped[Document] = relationship(back_populates="measurement_records")
+
+
+class ReviewItem(Base):
+    __tablename__ = "review_items"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), index=True)
+    record_type: Mapped[str] = mapped_column(String(128), index=True)
+    record_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(64), default="open", index=True)
+    issue_type: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    document: Mapped[Document] = relationship(back_populates="review_items")
+
+
+class ExportJob(Base):
+    __tablename__ = "export_jobs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    status: Mapped[str] = mapped_column(String(64), default="queued", index=True)
+    export_format: Mapped[str] = mapped_column(String(64), index=True)
+    storage_key: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    project: Mapped[Project] = relationship(back_populates="export_jobs")

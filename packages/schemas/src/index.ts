@@ -1,7 +1,6 @@
 export type JobStatus =
   | "queued"
   | "parsing"
-  | "chunking"
   | "extracting"
   | "validating"
   | "review_ready"
@@ -71,4 +70,53 @@ export interface DocumentChunk {
   text: string;
   tokenCount: number | null;
   createdAt: string;
+}
+
+export interface Evidence {
+  page?: number;
+  section?: string;
+  quote?: string;
+  [key: string]: unknown;
+}
+
+export interface ChemicalEntity {
+  id: string;
+  documentId: string;
+  name: string;
+  entityType: string | null;
+  normalizedName: string | null;
+  identifiers: Record<string, unknown> | null;
+  evidence: Evidence;
+  confidence: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReactionRecord {
+  id: string;
+  documentId: string;
+  reactionName: string | null;
+  reactants: Record<string, unknown> | null;
+  products: Record<string, unknown> | null;
+  conditions: Record<string, unknown> | null;
+  yieldText: string | null;
+  evidence: Evidence;
+  confidence: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MeasurementRecord {
+  id: string;
+  documentId: string;
+  measurementType: string;
+  subject: string | null;
+  valueText: string | null;
+  valueNumeric: number | null;
+  unit: string | null;
+  conditions: Record<string, unknown> | null;
+  evidence: Evidence;
+  confidence: number | null;
+  createdAt: string;
+  updatedAt: string;
 }

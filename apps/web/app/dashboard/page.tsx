@@ -2,6 +2,7 @@ import type { Document } from "@chemvault-extract/schemas";
 
 import { DashboardCards } from "@/components/dashboard-cards";
 import { DocumentsTable } from "@/components/documents-table";
+import { RecentJobsTable } from "@/components/recent-jobs-table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { listDocuments } from "@/lib/api";
 
@@ -30,7 +31,10 @@ export default async function DashboardPage() {
       ) : (
         <>
           <DashboardCards documents={documents} />
-          <DocumentsTable documents={documents.slice(0, 8)} title="Latest documents" />
+          <div className="grid gap-6 xl:grid-cols-2">
+            <DocumentsTable documents={documents.slice(0, 8)} title="Latest documents" />
+            <RecentJobsTable documents={documents} />
+          </div>
         </>
       )}
     </div>

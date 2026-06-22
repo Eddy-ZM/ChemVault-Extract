@@ -7,7 +7,7 @@ from app.models import Document, DocumentBlock, DocumentChunk, DocumentPage, Ext
 from app.workers.worker import process_job
 
 
-def test_worker_parses_uploaded_markdown_and_saves_pages_blocks_chunks(api_client, fake_storage):
+def test_worker_advances_job_without_parsing_file(api_client, fake_storage):
     upload = api_client.post(
         "/documents/upload",
         files={
@@ -29,16 +29,16 @@ def test_worker_parses_uploaded_markdown_and_saves_pages_blocks_chunks(api_clien
         chunks = db.scalars(select(DocumentChunk).where(DocumentChunk.document_id == document.id)).all()
         runs = db.scalars(select(ExtractionRun).where(ExtractionRun.job_id == job.id).order_by(ExtractionRun.created_at)).all()
 
-    assert document.status == "parsed"
+    assert document.status == "review_ready"
     assert job.status == "review_ready"
     assert job.error is None
-    assert [run.status for run in runs] == ["parsing", "chunking", "review_ready"]
-    assert len(pages) == 1
-    assert any(block.section == "Experimental" for block in blocks)
-    assert any(chunk.section == "Experimental" and "Reaction at 80 C." in chunk.text for chunk in chunks)
+    assert [run.status for run in runs] == ["parsing", "review_ready"]
+    assert pages == []
+    assert blocks == []
+    assert chunks == []
 
 
-def test_parsed_content_endpoints_return_structured_records(api_client, fake_storage):
+def test_parsed_content_endpoints_return_empty_records_before_parser_stage(api_client, fake_storage):
     upload = api_client.post(
         "/documents/upload",
         files={"file": ("table.csv", io.BytesIO(b"compound,yield\nA,75\n"), "text/csv")},
@@ -53,6 +53,6 @@ def test_parsed_content_endpoints_return_structured_records(api_client, fake_sto
     assert pages.status_code == 200
     assert blocks.status_code == 200
     assert chunks.status_code == 200
-    assert pages.json()[0]["pageNumber"] == 1
-    assert blocks.json()[0]["blockType"] == "table"
-    assert chunks.json()[0]["section"] == "Tables"
+    assert pages.json() == []
+    assert blocks.json() == []
+    assert chunks.json() == []

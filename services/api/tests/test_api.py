@@ -1,5 +1,8 @@
 import io
 
+from sqlalchemy import inspect
+
+from app.database import engine
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -68,3 +71,26 @@ def test_extract_endpoint_creates_new_queued_job(api_client, fake_queue):
     assert body["documentId"] == upload["document"]["id"]
     assert body["status"] == "queued"
     assert fake_queue.pushed[-1] == body["id"]
+
+
+def test_scientific_record_tables_are_registered(api_client):
+    inspector = inspect(engine)
+
+    assert {
+        "projects",
+        "documents",
+        "document_pages",
+        "document_blocks",
+        "document_chunks",
+        "extraction_jobs",
+        "extraction_runs",
+        "chemical_entities",
+        "reaction_records",
+        "measurement_records",
+        "review_items",
+        "export_jobs",
+    }.issubset(set(inspector.get_table_names()))
+
+    for table_name in ("chemical_entities", "reaction_records", "measurement_records"):
+        column_names = {column["name"] for column in inspector.get_columns(table_name)}
+        assert "evidence" in column_names
