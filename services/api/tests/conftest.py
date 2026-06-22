@@ -14,6 +14,7 @@ os.environ["S3_BUCKET"] = "test-bucket"
 from app.database import Base, engine, get_db  # noqa: E402
 from app.dependencies import get_queue, get_storage  # noqa: E402
 from app.main import app  # noqa: E402
+from app.config import get_settings  # noqa: E402
 
 
 class FakeStorage:
@@ -58,6 +59,7 @@ def fake_queue() -> FakeQueue:
 
 @pytest.fixture()
 def api_client(fake_storage: FakeStorage, fake_queue: FakeQueue) -> Generator[TestClient, None, None]:
+    get_settings.cache_clear()
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     app.dependency_overrides[get_storage] = lambda: fake_storage
@@ -65,3 +67,4 @@ def api_client(fake_storage: FakeStorage, fake_queue: FakeQueue) -> Generator[Te
     with TestClient(app) as client:
         yield client
     app.dependency_overrides.clear()
+    get_settings.cache_clear()

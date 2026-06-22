@@ -95,7 +95,7 @@ class ReactionRecordRead(ApiModel):
     reaction_name: str | None = Field(default=None, serialization_alias="reactionName")
     reactants: dict | None = None
     products: dict | None = None
-    conditions: dict | None = None
+    conditions: dict | list[dict] | None = None
     yield_text: str | None = Field(default=None, serialization_alias="yieldText")
     evidence: dict
     confidence: float | None = None
@@ -111,7 +111,7 @@ class MeasurementRecordRead(ApiModel):
     value_text: str | None = Field(default=None, serialization_alias="valueText")
     value_numeric: float | None = Field(default=None, serialization_alias="valueNumeric")
     unit: str | None = None
-    conditions: dict | None = None
+    conditions: dict | list[dict] | None = None
     evidence: dict
     confidence: float | None = None
     created_at: datetime = Field(serialization_alias="createdAt")
@@ -143,3 +143,12 @@ class DocumentExtractionsRead(ApiModel):
     reactions: list[ReactionRecordRead]
     measurements: list[MeasurementRecordRead]
     review_items: list[ReviewItemRead] = Field(serialization_alias="reviewItems")
+
+
+class AICostEstimateRead(ApiModel):
+    document_id: str = Field(serialization_alias="documentId")
+    selected_chunks: int = Field(serialization_alias="selectedChunks")
+    estimated_input_tokens: int = Field(serialization_alias="estimatedInputTokens")
+    estimated_output_tokens: int = Field(serialization_alias="estimatedOutputTokens")
+    model: str
+    estimated_cost_usd: float = Field(serialization_alias="estimatedCostUsd")

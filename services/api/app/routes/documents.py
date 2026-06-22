@@ -1,10 +1,12 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.config.ai import estimate_ai_cost_for_chunks, get_ai_settings
 from app.constants import DocumentStatus, JobStatus, JobType
 from app.database import get_db
 from app.dependencies import get_queue, get_storage
@@ -23,6 +25,7 @@ from app.models import (
 )
 from app.queue import JobQueue
 from app.schemas import (
+    AICostEstimateRead,
     DocumentBlockRead,
     DocumentChunkRead,
     DocumentExtractionsRead,
@@ -72,6 +75,35 @@ def _get_or_create_default_project(db: Session) -> Project:
         db.add(project)
         db.flush()
     return project
+
+
+def _first_day_of_current_month() -> datetime:
+    now = datetime.now(timezone.utc)
+    return datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+
+
+def _count_successful_ai_jobs_this_month(db: Session) -> int:
+    return len(
+        db.scalars(
+            select(ExtractionJob).where(
+                ExtractionJob.job_type == JobType.AI_EXTRACTION.value,
+                ExtractionJob.status == JobStatus.REVIEW_READY.value,
+                ExtractionJob.created_at >= _first_day_of_current_month(),
+            )
+        ).all()
+    )
+
+
+def _assert_ai_extraction_allowed(db: Session) -> None:
+    settings = get_settings()
+    ai_settings = get_ai_settings(settings)
+    if ai_settings.provider == "openai" and not ai_settings.openai_api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="OPENAI_API_KEY is missing. Please configure it before running AI extraction.",
+        )
+    if _count_successful_ai_jobs_this_month(db) >= ai_settings.monthly_free_file_limit:
+        raise HTTPException(status_code=400, detail="Monthly AI extraction limit reached.")
 
 
 @router.get("", response_model=list[DocumentWithLatestJob])
@@ -142,6 +174,28 @@ def get_document_chunks(document_id: str, db: Session = Depends(get_db)) -> list
     return [DocumentChunkRead.model_validate(chunk) for chunk in chunks]
 
 
+@router.post("/{document_id}/estimate-ai-cost", response_model=AICostEstimateRead)
+def estimate_document_ai_cost(document_id: str, db: Session = Depends(get_db)) -> AICostEstimateRead:
+    if db.get(Document, document_id) is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    settings = get_settings()
+    ai_settings = get_ai_settings(settings)
+    chunks = db.scalars(
+        select(DocumentChunk).where(DocumentChunk.document_id == document_id).order_by(DocumentChunk.chunk_index)
+    ).all()
+    estimate = estimate_ai_cost_for_chunks(document_id=document_id, chunks=chunks, ai_settings=ai_settings)
+    return AICostEstimateRead.model_validate(
+        {
+            "document_id": estimate.document_id,
+            "selected_chunks": estimate.selected_chunks,
+            "estimated_input_tokens": estimate.estimated_input_tokens,
+            "estimated_output_tokens": estimate.estimated_output_tokens,
+            "model": estimate.model,
+            "estimated_cost_usd": estimate.estimated_cost_usd,
+        }
+    )
+
+
 @router.post("/upload", response_model=UploadDocumentResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(
     file: UploadFile = File(...),
@@ -210,6 +264,7 @@ def create_ai_extraction_job(
     document = db.get(Document, document_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
+    _assert_ai_extraction_allowed(db)
 
     job = ExtractionJob(document_id=document.id, job_type=JobType.AI_EXTRACTION.value, status=JobStatus.QUEUED.value)
     db.add(job)

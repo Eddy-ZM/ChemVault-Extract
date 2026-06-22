@@ -147,3 +147,12 @@ export interface DocumentExtractions {
   measurements: MeasurementRecord[];
   reviewItems: ReviewItem[];
 }
+
+export interface AICostEstimate {
+  documentId: string;
+  selectedChunks: number;
+  estimatedInputTokens: number;
+  estimatedOutputTokens: number;
+  model: string;
+  estimatedCostUsd: number;
+}

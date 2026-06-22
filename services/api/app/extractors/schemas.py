@@ -1,6 +1,7 @@
-from typing import Literal
+import json
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class StrictExtractionModel(BaseModel):
@@ -97,15 +98,37 @@ MeasurementType = Literal[
 ]
 
 
+class MeasurementCondition(StrictExtractionModel):
+    name: str
+    value: str | None = None
+    unit: str | None = None
+
+
 class MeasurementExtraction(StrictExtractionModel):
     target: str | None = None
     measurement_type: MeasurementType
     value: str | None = None
     unit: str | None = None
-    conditions: dict | None = None
+    conditions: list[MeasurementCondition] = Field(default_factory=list)
     raw_text: str
     evidence: Evidence
     confidence: float | None = None
+
+    @field_validator("conditions", mode="before")
+    @classmethod
+    def normalize_conditions(cls, value: Any) -> Any:
+        if value is None:
+            return []
+        if isinstance(value, dict):
+            return [
+                {
+                    "name": str(condition_name),
+                    "value": _condition_value_to_string(condition_value),
+                    "unit": None,
+                }
+                for condition_name, condition_value in value.items()
+            ]
+        return value
 
 
 class MetadataExtractionOutput(StrictExtractionModel):
@@ -122,3 +145,11 @@ class ReactionExtractionOutput(StrictExtractionModel):
 
 class MeasurementExtractionOutput(StrictExtractionModel):
     items: list[MeasurementExtraction] = Field(default_factory=list)
+
+
+def _condition_value_to_string(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, ensure_ascii=True)

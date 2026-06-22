@@ -1,4 +1,5 @@
 import type {
+  AICostEstimate,
   Document,
   DocumentBlock,
   DocumentChunk,
@@ -54,6 +55,10 @@ export function getDocumentChunks(id: string): Promise<DocumentChunk[]> {
 
 export function runAiExtraction(id: string): Promise<ExtractionJob> {
   return apiFetch<ExtractionJob>(`/documents/${id}/extract-ai`, { method: "POST" });
+}
+
+export function estimateAiCost(id: string): Promise<AICostEstimate> {
+  return apiFetch<AICostEstimate>(`/documents/${id}/estimate-ai-cost`, { method: "POST" });
 }
 
 export function getDocumentExtractions(id: string): Promise<DocumentExtractions> {

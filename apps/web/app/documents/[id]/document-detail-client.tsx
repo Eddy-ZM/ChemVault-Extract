@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { Document, DocumentBlock, DocumentChunk, DocumentPage } from "@chemvault-extract/schemas";
-import { RefreshCw, Sparkles } from "lucide-react";
+import type { AICostEstimate, Document, DocumentBlock, DocumentChunk, DocumentPage } from "@chemvault-extract/schemas";
+import { Calculator, RefreshCw, Sparkles } from "lucide-react";
 
 import { StatusBadge } from "@/components/status-badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -24,6 +24,8 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
   const [chunks, setChunks] = useState<DocumentChunk[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [startingExtraction, setStartingExtraction] = useState(false);
+  const [estimatingCost, setEstimatingCost] = useState(false);
+  const [costEstimate, setCostEstimate] = useState<AICostEstimate | null>(null);
   const latestJob = document.latestJob;
   const currentIndex = useMemo(
     () => visiblePipeline.findIndex((status) => status === latestJob?.status),
@@ -71,6 +73,10 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
   }, [latestJob?.status, refresh]);
 
   const startAiExtraction = useCallback(async () => {
+    const confirmed = window.confirm(
+      "This will send selected document chunks to OpenAI for structured extraction and may incur API costs. Continue?",
+    );
+    if (!confirmed) return;
     setStartingExtraction(true);
     try {
       const response = await fetch(`/api/documents/${document.id}/extract-ai`, { method: "POST" });
@@ -87,6 +93,23 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
       setStartingExtraction(false);
     }
   }, [document.id, refresh]);
+
+  const estimateCost = useCallback(async () => {
+    setEstimatingCost(true);
+    try {
+      const response = await fetch(`/api/documents/${document.id}/estimate-ai-cost`, { method: "POST" });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.detail ?? "Unable to estimate cost");
+      }
+      setCostEstimate(body as AICostEstimate);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to estimate cost");
+    } finally {
+      setEstimatingCost(false);
+    }
+  }, [document.id]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -121,7 +144,10 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
               currentIndex={currentIndex}
               onRefresh={refresh}
               onStartAiExtraction={startAiExtraction}
+              onEstimateCost={estimateCost}
               startingExtraction={startingExtraction}
+              estimatingCost={estimatingCost}
+              costEstimate={costEstimate}
             />
           </div>
         </TabsContent>
@@ -205,13 +231,19 @@ function JobStatusCard({
   currentIndex,
   onRefresh,
   onStartAiExtraction,
+  onEstimateCost,
   startingExtraction,
+  estimatingCost,
+  costEstimate,
 }: {
   latestJob: Document["latestJob"];
   currentIndex: number;
   onRefresh: () => void;
   onStartAiExtraction: () => void;
+  onEstimateCost: () => void;
   startingExtraction: boolean;
+  estimatingCost: boolean;
+  costEstimate: AICostEstimate | null;
 }) {
   const activeJob = latestJob && !["review_ready", "failed"].includes(latestJob.status);
   return (
@@ -224,6 +256,10 @@ function JobStatusCard({
         <CardDescription>{latestJob ? `Job ID: ${latestJob.id}` : "No extraction job"}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        <Alert>
+          <AlertTitle>AI extraction may incur OpenAI API costs.</AlertTitle>
+          <AlertDescription>Only selected chunks are sent, with references excluded and long chunks truncated.</AlertDescription>
+        </Alert>
         {latestJob ? (
           <>
             <div className="flex flex-col gap-3">
@@ -253,7 +289,11 @@ function JobStatusCard({
         ) : (
           <p className="text-sm text-muted-foreground">No job has been created for this document.</p>
         )}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={onEstimateCost} disabled={estimatingCost}>
+            <Calculator data-icon="inline-start" />
+            Estimate cost
+          </Button>
           <Button variant="default" size="sm" onClick={onStartAiExtraction} disabled={Boolean(activeJob) || startingExtraction}>
             <Sparkles data-icon="inline-start" />
             Run AI Extraction
@@ -269,6 +309,13 @@ function JobStatusCard({
             Refresh
           </Button>
         </div>
+        {costEstimate ? (
+          <div className="grid gap-3 rounded-md border p-3 text-sm sm:grid-cols-3">
+            <DetailItem label="Estimated cost" value={`$${costEstimate.estimatedCostUsd.toFixed(4)}`} />
+            <DetailItem label="Selected chunks" value={String(costEstimate.selectedChunks)} />
+            <DetailItem label="Model" value={costEstimate.model} />
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

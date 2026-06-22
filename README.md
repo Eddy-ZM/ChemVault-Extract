@@ -2,13 +2,13 @@
 
 Production-ready MVP foundation for ingesting chemistry papers, lab reports, and instrument-exported files into an AI Scientific Data Extraction / Research Intelligence pipeline.
 
-This project does not call the OpenAI API by default. It includes the monorepo, Next.js frontend, FastAPI backend, PostgreSQL models, MinIO file storage, Redis job queue, a Python parsing worker, and an offline structured-extraction pipeline foundation.
+This project uses OpenAI API structured outputs for the AI extraction mode. It includes the monorepo, Next.js frontend, FastAPI backend, PostgreSQL models, MinIO file storage, Redis job queue, a Python parsing worker, and a cost-controlled structured-extraction pipeline.
 
 ## Services
 
 - `web`: Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui-style components
 - `api`: FastAPI service with upload, document, job, and health endpoints
-- `worker`: Python Redis worker, packaged from `services/worker`, that parses uploaded files into pages, blocks, table blocks, and chunks, then can run an offline structured-extraction pipeline foundation
+- `worker`: Python Redis worker, packaged from `services/worker`, that parses uploaded files into pages, blocks, table blocks, and chunks, then runs structured extraction against selected chunks
 - `postgres`: application database
 - `redis`: extraction job queue
 - `minio`: S3-compatible object storage
@@ -49,9 +49,10 @@ Default MinIO credentials are `chemvault` / `chemvault-secret`.
 3. The upload page shows the created document ID and extraction job ID.
 4. Open the document detail page to watch the worker update the job status and parsed preview.
 5. Use the `Preview`, `Pages`, `Blocks`, and `Chunks` tabs to inspect parser output.
-6. Click `Run AI Extraction` to run the structured extraction pipeline. In default offline mode this records skipped extractor runs and does not create fake records.
-7. Open `/documents/{document_id}/review` to inspect review items once a real extraction provider is connected.
-8. Confirm the object exists in MinIO under the `chemvault-documents` bucket.
+6. Click `Estimate cost` to preview selected chunks, model, and estimated OpenAI cost.
+7. Click `Run AI Extraction` to run the structured extraction pipeline. This requires `OPENAI_API_KEY`.
+8. Open `/documents/{document_id}/review` to inspect review items.
+9. Confirm the object exists in MinIO under the `chemvault-documents` bucket.
 
 Check API health directly:
 
@@ -146,34 +147,68 @@ To test each type locally, start Docker Compose, upload one sample at a time fro
 
 ## Structured Extraction Foundation
 
-The extraction layer is wired end to end but defaults to `AI_EXTRACTION_PROVIDER=none`. In this mode it does not call OpenAI or any external LLM, does not generate records, and does not create fake chemistry data.
+The extraction layer uses `AI_PROVIDER=openai` by default. It sends only selected `DocumentChunk` text to OpenAI, never the original PDF or full uploaded object. If `OPENAI_API_KEY` is missing, `POST /documents/{document_id}/extract-ai` returns `OPENAI_API_KEY is missing. Please configure it before running AI extraction.`
+
+OpenAI API usage is metered. Use `POST /documents/{document_id}/estimate-ai-cost` or the `Estimate cost` button before running extraction.
+
+Configure API access in `.env`:
+
+```bash
+AI_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4.1-mini
+AI_ENABLE_FALLBACK_MODEL=false
+```
 
 When the user clicks `Run AI Extraction`, the API creates an `ai_extraction` job. The worker:
 
 1. Uses existing chunks when the document is already parsed.
 2. Parses first if no chunks exist.
-3. Moves the job through `extracting`, `validating`, and `review_ready`.
-4. Runs the four extractor interfaces in offline mode:
+3. Selects at most `AI_MAX_CHUNKS_PER_DOCUMENT` chunks by section priority.
+4. Truncates each selected chunk to `AI_MAX_CHUNK_CHARS`.
+5. Moves the job through `extracting`, `validating`, and `review_ready`.
+6. Runs the four extractor interfaces:
    - `metadata`
    - `chemical_entities`
    - `reactions`
    - `measurements`
-5. Saves one skipped `ExtractionRun` per extractor with selected chunk IDs and empty parsed output.
+7. Saves one `ExtractionRun` per extractor with provider, model, selected chunk IDs, estimated tokens, estimated cost, raw output, and parsed output.
+
+Chunk selection priority:
+
+1. Experimental
+2. Materials and Methods
+3. Methods
+4. Results
+5. Supporting Information
+6. Tables
+7. Abstract
+8. Introduction
+
+References are excluded. Long chunks are truncated and recorded with `truncated`, `original_chars`, and `used_chars` metadata in the run payload.
+
+Cost estimates use centralized prices in `services/api/app/config/ai.py`:
+
+- `gpt-4.1-mini`: input `$0.40 / 1M`, output `$1.60 / 1M`
+- `gpt-5.5`: input `$5.00 / 1M`, output `$30.00 / 1M`
 
 The extractor modules live in `services/api/app/extractors`:
 
 - `schemas.py`: JSON-schema-ready Pydantic models for metadata, chemical entities, reactions, measurements, and evidence.
-- `prompts.py`: the future system prompt for strict source-grounded extraction.
+- `prompts.py`: the system prompt for strict source-grounded extraction.
 - `base.py`: extractor interface and chunk selection.
 - `metadata_extractor.py`, `chemical_extractor.py`, `reaction_extractor.py`, `measurement_extractor.py`: extractor-specific section targeting.
-- `pipeline.py`: orchestrates the current offline provider.
+- `openai_client.py`: OpenAI Responses API structured-output client.
+- `pipeline.py`: orchestrates OpenAI calls, schema validation, fallback handling, record persistence, and review item creation.
 
 The validation modules live in `services/api/app/validators`:
 
 - `evidence_validator.py`: checks `document_id`, `chunk_id`, page range, and whether `quote` appears in the chunk text.
 - `chemistry_validator.py`: placeholder normalization checks for confidence and measurement type.
 
-Review UI is available at `/documents/{document_id}/review`. It can list review items, approve, reject, and edit `extractedData`. In offline mode the list is normally empty; real review items will appear when an extraction provider is connected and returns evidence-backed records.
+Review UI is available at `/documents/{document_id}/review`. It can list review items, approve, reject, and edit `extractedData`. AI output is schema-validated before records are written, and evidence quotes are checked against the source chunk before review status is assigned.
+
+Fallback model behavior is disabled by default. Set `AI_ENABLE_FALLBACK_MODEL=true` to retry once with `OPENAI_FALLBACK_MODEL` when the default model call or schema validation fails. Fallback attempts are recorded as `ExtractionRun` rows.
 
 ## Local Development Without Docker
 
@@ -216,8 +251,15 @@ For non-Docker frontend development, set `API_BASE_URL=http://localhost:8000` in
 - `S3_BUCKET`: Bucket for uploaded source files.
 - `API_BASE_URL`: API origin used by the Next.js frontend or Cloudflare Worker gateway.
 - `WORKER_STEP_DELAY_SECONDS`: Optional local delay between worker status transitions.
-- `AI_EXTRACTION_PROVIDER`: `none` by default. Future values can enable a real LLM provider.
-- `AI_MODEL`: model/provider label stored on extraction runs. Defaults to `offline-no-provider`.
+- `AI_PROVIDER`: AI provider. Use `openai` for the MVP.
+- `OPENAI_API_KEY`: Required before running AI extraction.
+- `OPENAI_MODEL`: Default extraction model. Defaults to `gpt-4.1-mini`.
+- `OPENAI_FALLBACK_MODEL`: Optional fallback model. Defaults to `gpt-5.5`.
+- `AI_MAX_CHUNKS_PER_DOCUMENT`: Maximum selected chunks sent to OpenAI per document. Defaults to `20`.
+- `AI_MAX_CHUNK_CHARS`: Maximum characters per selected chunk. Defaults to `6000`.
+- `AI_ENABLE_FALLBACK_MODEL`: Set to `true` to enable fallback retry. Defaults to `false`.
+- `AI_ESTIMATED_INPUT_TOKEN_RATIO`: Character-to-token estimate ratio. Defaults to `0.25`.
+- `AI_MONTHLY_FREE_FILE_LIMIT`: Simple monthly successful AI extraction job limit. Defaults to `10`.
 
 ## Cloudflare Frontend Deployment
 

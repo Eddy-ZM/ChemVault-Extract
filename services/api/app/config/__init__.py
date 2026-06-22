@@ -15,8 +15,16 @@ class Settings(BaseSettings):
     default_project_name: str = "Default Project"
     worker_step_delay_seconds: float = 1.0
     max_chunk_tokens: int = 900
-    ai_extraction_provider: str = "none"
-    ai_model: str = "offline-no-provider"
+
+    ai_provider: str = "openai"
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-4.1-mini"
+    openai_fallback_model: str = "gpt-5.5"
+    ai_max_chunks_per_document: int = 20
+    ai_max_chunk_chars: int = 6000
+    ai_enable_fallback_model: bool = False
+    ai_estimated_input_token_ratio: float = 0.25
+    ai_monthly_free_file_limit: int = 10
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
