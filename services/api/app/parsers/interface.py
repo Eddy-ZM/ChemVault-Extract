@@ -7,26 +7,28 @@ class ParsedPage:
     text: str | None = None
     width: float | None = None
     height: float | None = None
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass(slots=True)
 class ParsedBlock:
     block_type: str
+    text: str | None = None
     page_number: int | None = None
     section: str | None = None
-    text: str | None = None
-    html: str | None = None
     bbox: dict | None = None
-    metadata: dict | None = None
+    html: str | None = None
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass(slots=True)
 class ParsedTable:
     page_number: int | None = None
-    section: str | None = None
     html: str | None = None
     csv_text: str | None = None
-    metadata: dict | None = None
+    rows: list[dict] | None = None
+    metadata: dict = field(default_factory=dict)
+    section: str | None = None
 
 
 @dataclass(slots=True)

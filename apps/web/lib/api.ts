@@ -36,6 +36,10 @@ export function getDocumentBlocks(id: string): Promise<DocumentBlock[]> {
   return apiFetch<DocumentBlock[]>(`/documents/${id}/blocks`);
 }
 
+export function getDocumentTables(id: string): Promise<DocumentBlock[]> {
+  return apiFetch<DocumentBlock[]>(`/documents/${id}/tables`);
+}
+
 export function getDocumentChunks(id: string): Promise<DocumentChunk[]> {
   return apiFetch<DocumentChunk[]>(`/documents/${id}/chunks`);
 }

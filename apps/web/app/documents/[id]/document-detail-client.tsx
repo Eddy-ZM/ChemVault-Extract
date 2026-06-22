@@ -20,6 +20,7 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
   const [document, setDocument] = useState(initialDocument);
   const [pages, setPages] = useState<DocumentPage[]>([]);
   const [blocks, setBlocks] = useState<DocumentBlock[]>([]);
+  const [tables, setTables] = useState<DocumentBlock[]>([]);
   const [chunks, setChunks] = useState<DocumentChunk[]>([]);
   const [error, setError] = useState<string | null>(null);
   const latestJob = document.latestJob;
@@ -27,6 +28,7 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
     () => visiblePipeline.findIndex((status) => status === latestJob?.status),
     [latestJob?.status],
   );
+  const detectedSections = useMemo(() => getDetectedSections(blocks, chunks), [blocks, chunks]);
 
   const refresh = useCallback(async () => {
     try {
@@ -37,13 +39,15 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
       }
       setDocument(documentBody as Document);
 
-      const [pagesResponse, blocksResponse, chunksResponse] = await Promise.all([
+      const [pagesResponse, blocksResponse, tablesResponse, chunksResponse] = await Promise.all([
         fetch(`/api/documents/${document.id}/pages`),
         fetch(`/api/documents/${document.id}/blocks`),
+        fetch(`/api/documents/${document.id}/tables`),
         fetch(`/api/documents/${document.id}/chunks`),
       ]);
       if (pagesResponse.ok) setPages((await pagesResponse.json()) as DocumentPage[]);
       if (blocksResponse.ok) setBlocks((await blocksResponse.json()) as DocumentBlock[]);
+      if (tablesResponse.ok) setTables((await tablesResponse.json()) as DocumentBlock[]);
       if (chunksResponse.ok) setChunks((await chunksResponse.json()) as DocumentChunk[]);
       setError(null);
     } catch (err) {
@@ -77,6 +81,7 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
       <Tabs defaultValue="overview" className="flex flex-col gap-4">
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="preview">Preview</TabsTrigger>
           <TabsTrigger value="pages">Pages</TabsTrigger>
           <TabsTrigger value="blocks">Blocks</TabsTrigger>
           <TabsTrigger value="chunks">Chunks</TabsTrigger>
@@ -84,9 +89,20 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
 
         <TabsContent value="overview" className="mt-0">
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-            <DocumentMetadataCard document={document} pageCount={pages.length} blockCount={blocks.length} chunkCount={chunks.length} />
+            <DocumentMetadataCard
+              document={document}
+              pageCount={pages.length}
+              blockCount={blocks.length}
+              tableCount={tables.length}
+              chunkCount={chunks.length}
+              sections={detectedSections}
+            />
             <JobStatusCard latestJob={latestJob} currentIndex={currentIndex} onRefresh={refresh} />
           </div>
+        </TabsContent>
+
+        <TabsContent value="preview" className="mt-0">
+          <ParsedPreviewPanel pages={pages} blocks={blocks} />
         </TabsContent>
 
         <TabsContent value="pages" className="mt-0">
@@ -109,12 +125,16 @@ function DocumentMetadataCard({
   document,
   pageCount,
   blockCount,
+  tableCount,
   chunkCount,
+  sections,
 }: {
   document: Document;
   pageCount: number;
   blockCount: number;
+  tableCount: number;
   chunkCount: number;
+  sections: string[];
 }) {
   return (
     <Card>
@@ -134,7 +154,22 @@ function DocumentMetadataCard({
         <DetailItem label="Storage key" value={document.storageKey} mono />
         <DetailItem label="Parsed pages" value={String(pageCount)} />
         <DetailItem label="Parsed blocks" value={String(blockCount)} />
+        <DetailItem label="Parsed tables" value={String(tableCount)} />
         <DetailItem label="Chunks" value={String(chunkCount)} />
+        <div className="flex min-w-0 flex-col gap-2 sm:col-span-2">
+          <span className="text-xs font-medium text-muted-foreground">Detected sections</span>
+          {sections.length === 0 ? (
+            <span className="text-sm text-muted-foreground">No sections detected yet.</span>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {sections.map((section) => (
+                <Badge key={section} variant="secondary">
+                  {section}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -200,6 +235,40 @@ function JobStatusCard({
             Refresh
           </Button>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ParsedPreviewPanel({ pages, blocks }: { pages: DocumentPage[]; blocks: DocumentBlock[] }) {
+  const previews = useMemo(() => buildParsedPreview(pages, blocks), [pages, blocks]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Parsed preview</CardTitle>
+        <CardDescription>Text grouped by page and detected scientific section</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {previews.length === 0 ? (
+          <EmptyMessage message="No parsed text preview yet." />
+        ) : (
+          previews.map((page) => (
+            <div key={page.pageNumber} className="flex flex-col gap-4 rounded-md border p-4">
+              <h3 className="text-sm font-medium">Page {page.pageNumber}</h3>
+              {page.sections.map((section) => (
+                <section key={`${page.pageNumber}-${section.section}`} className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">Section: {section.section}</Badge>
+                  </div>
+                  <p className="max-h-80 overflow-auto whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                    {section.text}
+                  </p>
+                </section>
+              ))}
+            </div>
+          ))
+        )}
       </CardContent>
     </Card>
   );
@@ -315,6 +384,58 @@ function ChunksPanel({ chunks }: { chunks: DocumentChunk[] }) {
       </CardContent>
     </Card>
   );
+}
+
+type ParsedPreviewPage = {
+  pageNumber: number;
+  sections: Array<{
+    section: string;
+    text: string;
+  }>;
+};
+
+function getDetectedSections(blocks: DocumentBlock[], chunks: DocumentChunk[]): string[] {
+  const sections: string[] = [];
+  const seen = new Set<string>();
+  for (const section of [...blocks.map((block) => block.section), ...chunks.map((chunk) => chunk.section)]) {
+    if (!section || section === "Unsectioned" || seen.has(section)) continue;
+    seen.add(section);
+    sections.push(section);
+  }
+  return sections;
+}
+
+function buildParsedPreview(pages: DocumentPage[], blocks: DocumentBlock[]): ParsedPreviewPage[] {
+  const grouped = new Map<number, Map<string, string[]>>();
+  for (const block of blocks) {
+    if (!block.text || block.blockType === "table" || block.blockType === "heading") continue;
+    const pageNumber = block.pageNumber ?? 1;
+    const section = block.section ?? "Unsectioned";
+    const bySection = grouped.get(pageNumber) ?? new Map<string, string[]>();
+    const texts = bySection.get(section) ?? [];
+    texts.push(block.text);
+    bySection.set(section, texts);
+    grouped.set(pageNumber, bySection);
+  }
+
+  if (grouped.size === 0) {
+    return pages
+      .filter((page) => Boolean(page.text?.trim()))
+      .map((page) => ({
+        pageNumber: page.pageNumber,
+        sections: [{ section: "Unsectioned", text: page.text?.trim() ?? "" }],
+      }));
+  }
+
+  return Array.from(grouped.entries())
+    .sort(([left], [right]) => left - right)
+    .map(([pageNumber, bySection]) => ({
+      pageNumber,
+      sections: Array.from(bySection.entries()).map(([section, texts]) => ({
+        section,
+        text: texts.join("\n\n"),
+      })),
+    }));
 }
 
 function formatPageRange(chunk: DocumentChunk): string {

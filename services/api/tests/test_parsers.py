@@ -6,6 +6,42 @@ from app.parsers.registry import parse_document
 from app.parsers.sections import detect_section
 
 
+def write_minimal_text_pdf(path: Path) -> None:
+    content = (
+        b"BT /F1 12 Tf 72 720 Td "
+        b"(Abstract) Tj 0 -20 Td "
+        b"(The sample was heated.) Tj ET"
+    )
+    objects = [
+        b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+        b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+        b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n",
+        b"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+        b"5 0 obj\n<< /Length "
+        + str(len(content)).encode()
+        + b" >>\nstream\n"
+        + content
+        + b"\nendstream\nendobj\n",
+    ]
+    body = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for obj in objects:
+        offsets.append(len(body))
+        body.extend(obj)
+    xref_at = len(body)
+    body.extend(f"xref\n0 {len(objects) + 1}\n".encode())
+    body.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        body.extend(f"{offset:010d} 00000 n \n".encode())
+    trailer = (
+        f"trailer\n<< /Root 1 0 R /Size {len(objects) + 1} >>\n"
+        f"startxref\n{xref_at}\n%%EOF\n"
+    )
+    body.extend(trailer.encode())
+    path.write_bytes(body)
+
+
 def test_markdown_parser_detects_headings_as_sections(tmp_path: Path):
     path = tmp_path / "paper.md"
     path.write_text(
@@ -45,9 +81,49 @@ def test_csv_parser_creates_table_block_and_text(tmp_path: Path):
     parsed = parse_document(str(path), "text/csv")
 
     assert parsed.tables[0].csv_text == "compound,yield\nAspirin,75\nCaffeine,63\n"
+    assert parsed.tables[0].rows == [
+        {"compound": "Aspirin", "yield": 75},
+        {"compound": "Caffeine", "yield": 63},
+    ]
     assert parsed.blocks[0].block_type == "table"
-    assert parsed.blocks[0].metadata["rows"] == 2
+    assert parsed.blocks[0].section == "Tables"
+    assert parsed.blocks[0].metadata["row_count"] == 2
     assert "Aspirin" in parsed.pages[0].text
+
+
+def test_xlsx_parser_creates_table_per_sheet(tmp_path: Path):
+    from openpyxl import Workbook
+
+    path = tmp_path / "workbook.xlsx"
+    workbook = Workbook()
+    assay = workbook.active
+    assay.title = "Assay"
+    assay.append(["compound", "yield"])
+    assay.append(["A", 75])
+    runs = workbook.create_sheet("Runs")
+    runs.append(["sample", "temperature_c"])
+    runs.append(["B", 80])
+    workbook.save(path)
+
+    parsed = parse_document(str(path), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    assert len(parsed.tables) == 2
+    assert [table.metadata["sheet_name"] for table in parsed.tables] == ["Assay", "Runs"]
+    assert [block.block_type for block in parsed.blocks] == ["table", "table"]
+    assert parsed.blocks[1].metadata["rows"] == [{"sample": "B", "temperature_c": 80}]
+    assert "Sheet: Runs" in parsed.pages[1].text
+
+
+def test_pdf_parser_extracts_text_with_pypdf_fallback(tmp_path: Path):
+    path = tmp_path / "paper.pdf"
+    write_minimal_text_pdf(path)
+
+    parsed = parse_document(str(path), "application/pdf")
+
+    assert parsed.errors == []
+    assert parsed.pages[0].page_number == 1
+    assert "The sample was heated" in (parsed.pages[0].text or "")
+    assert any(block.section == "Abstract" for block in parsed.blocks)
 
 
 def test_section_detection_supports_common_scientific_variants():

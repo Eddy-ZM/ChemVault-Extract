@@ -1,0 +1,17 @@
+Title: Esterification Lab Report
+
+Abstract
+
+Ethyl acetate was prepared from ethanol and acetic acid using sulfuric acid as the catalyst. The final product was isolated after washing and drying.
+
+Experimental
+
+Ethanol, acetic acid, and concentrated sulfuric acid were combined in a round-bottom flask. The reaction mixture was heated at reflux for 45 minutes, cooled, and transferred to a separatory funnel. The organic layer was washed with sodium bicarbonate solution and brine.
+
+Results
+
+The product mass was 3.21 g. The observed boiling range was 74-78 C. The isolated yield was calculated as 68%.
+
+Conclusion
+
+The experiment produced ethyl acetate in moderate yield. Further drying time may improve the measured purity.

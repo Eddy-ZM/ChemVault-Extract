@@ -91,7 +91,29 @@ def get_document_blocks(document_id: str, db: Session = Depends(get_db)) -> list
     blocks = db.scalars(
         select(DocumentBlock)
         .where(DocumentBlock.document_id == document_id)
-        .order_by(DocumentBlock.page_number.is_(None), DocumentBlock.page_number, DocumentBlock.created_at, DocumentBlock.id)
+        .order_by(
+            DocumentBlock.page_number.is_(None),
+            DocumentBlock.page_number,
+            DocumentBlock.created_at,
+            DocumentBlock.id,
+        )
+    ).all()
+    return [DocumentBlockRead.model_validate(block) for block in blocks]
+
+
+@router.get("/{document_id}/tables", response_model=list[DocumentBlockRead])
+def get_document_tables(document_id: str, db: Session = Depends(get_db)) -> list[DocumentBlockRead]:
+    if db.get(Document, document_id) is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    blocks = db.scalars(
+        select(DocumentBlock)
+        .where(DocumentBlock.document_id == document_id, DocumentBlock.block_type == "table")
+        .order_by(
+            DocumentBlock.page_number.is_(None),
+            DocumentBlock.page_number,
+            DocumentBlock.created_at,
+            DocumentBlock.id,
+        )
     ).all()
     return [DocumentBlockRead.model_validate(block) for block in blocks]
 

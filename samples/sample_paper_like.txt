@@ -1,0 +1,23 @@
+Abstract
+
+We report a small-scale synthesis workflow for evaluating substituted benzoate esters. The procedure records reaction conditions, isolated yield, and simple characterization observations.
+
+Introduction
+
+Structured extraction from chemistry papers requires reliable links between claims and source evidence. This sample text resembles a short paper so the parser can detect common scientific sections before any AI extraction is added.
+
+Materials and Methods
+
+Benzoic acid, methanol, sulfuric acid, and sodium bicarbonate were used without further purification. Reactions were performed in sealed vials with magnetic stirring. Product mixtures were diluted with ethyl acetate and washed with aqueous sodium bicarbonate.
+
+Results
+
+The methyl benzoate product was isolated as a clear liquid. The reaction at 65 C for 2 hours gave 82% yield. A shorter reaction time gave 54% yield under otherwise identical conditions.
+
+Discussion
+
+Higher conversion was observed when the reaction was heated for the full 2 hours. The evidence indicates that time was a stronger factor than catalyst loading in this simplified experiment.
+
+References
+
+[1] Example reference omitted.

@@ -2,13 +2,13 @@
 
 Production-ready MVP foundation for ingesting chemistry papers, lab reports, and instrument-exported files into an AI Scientific Data Extraction / Research Intelligence pipeline.
 
-This project does not implement AI extraction yet and does not call the OpenAI API. It includes the monorepo, Next.js frontend, FastAPI backend, PostgreSQL models, MinIO file storage, Redis job queue, and a Python worker skeleton that advances queued jobs through the first-stage pipeline.
+This project does not implement AI extraction yet and does not call the OpenAI API. It includes the monorepo, Next.js frontend, FastAPI backend, PostgreSQL models, MinIO file storage, Redis job queue, and a Python worker that parses uploaded files into review-ready document artifacts.
 
 ## Services
 
 - `web`: Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui-style components
 - `api`: FastAPI service with upload, document, job, and health endpoints
-- `worker`: Python Redis worker, packaged from `services/worker`, that reserves the future parsing/extraction boundary and currently moves jobs through `parsing` to `review_ready`
+- `worker`: Python Redis worker, packaged from `services/worker`, that parses uploaded files into pages, blocks, table blocks, and chunks before moving jobs to `review_ready`
 - `postgres`: application database
 - `redis`: extraction job queue
 - `minio`: S3-compatible object storage
@@ -27,6 +27,13 @@ cp .env.example .env
 docker compose up --build
 ```
 
+If you are reusing a local Docker volume from an earlier schema, reset it before testing the parsing layer:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
 Open:
 
 - Frontend: [http://localhost:3000](http://localhost:3000)
@@ -40,9 +47,10 @@ Default MinIO credentials are `chemvault` / `chemvault-secret`.
 1. Open [http://localhost:3000/documents/upload](http://localhost:3000/documents/upload).
 2. Upload a supported file: PDF, DOCX, CSV, XLSX, TXT, or MD.
 3. The upload page shows the created document ID and extraction job ID.
-4. Open the document detail page to watch the worker update the job status.
-5. Open `/documents/{document_id}/review` to see the placeholder review workspace.
-6. Confirm the object exists in MinIO under the `chemvault-documents` bucket.
+4. Open the document detail page to watch the worker update the job status and parsed preview.
+5. Use the `Preview`, `Pages`, `Blocks`, and `Chunks` tabs to inspect parser output.
+6. Open `/documents/{document_id}/review` to see the placeholder review workspace.
+7. Confirm the object exists in MinIO under the `chemvault-documents` bucket.
 
 Check API health directly:
 
@@ -65,6 +73,7 @@ Expected response:
 - `POST /documents/{document_id}/extract`
 - `GET /documents/{document_id}/pages`
 - `GET /documents/{document_id}/blocks`
+- `GET /documents/{document_id}/tables`
 - `GET /documents/{document_id}/chunks`
 - `GET /jobs/{job_id}`
 
@@ -99,24 +108,36 @@ Example evidence payload:
 
 ## Parsing Pipeline
 
-The first-stage worker intentionally does not perform real parsing or AI extraction. For now, it:
+The first-stage worker performs document parsing only. It does not perform AI extraction, reaction extraction, RDKit processing, PubChem enrichment, or OpenAI API calls.
 
-1. Pops queued job IDs from Redis.
+For each queued job, the worker:
+
+1. Pops the job ID from Redis.
 2. Updates the job to `parsing`.
-3. Updates the job to `review_ready`.
-4. Marks failures as `failed`.
+3. Downloads the original object from MinIO / S3-compatible storage.
+4. Selects a parser by file type.
+5. Saves `DocumentPage`, `DocumentBlock`, and `DocumentChunk` rows.
+6. Updates the job and document to `review_ready`.
+7. Marks failures as `failed` with a clear error message.
 
-Parser modules are kept in `services/api/app/parsers` as the next integration point for Docling, GROBID, RDKit, LLM structured outputs, and PubChem enrichment. These modules are not used by the current worker to create extraction records.
+Supported parser inputs:
 
-Planned parser inputs:
+- TXT / MD: reads plain text, detects Markdown and scientific headings, creates page 1, paragraph blocks, and section-based chunks.
+- CSV: reads tabular data with pandas when available, stores a table block with rows JSON, and creates a table-oriented chunk with column names and sample rows.
+- XLSX: reads each sheet, creates one table block per sheet, stores `sheet_name` in metadata, and creates chunks for each sheet table.
+- PDF: attempts Docling if installed, otherwise falls back to `pypdf`; scanned PDFs without extractable text fail with `No extractable text found. OCR support will be added in a later stage.`
+- DOCX: extracts headings and paragraphs with `python-docx`.
 
-- PDF: attempts Docling if installed, then falls back to `pypdf`
-- DOCX: extracts headings and paragraphs with `python-docx`
-- CSV: creates a table block and text representation
-- XLSX: parses each sheet as a table block
-- TXT / MD: extracts headings and paragraphs
+Scientific section detection recognizes Abstract, Introduction, Background, Experimental, Materials and Methods, Methods, Results, Discussion, Conclusion, Supporting Information, References, and related variants. Chunks are grouped by section and References are excluded from future extraction chunks.
 
-Scientific section detection recognizes common sections such as Abstract, Introduction, Experimental, Materials and Methods, Results, Discussion, Supporting Information, References, and Appendix. References will be excluded from chunks by default once parsing is enabled in the worker.
+Sample inputs live in `samples/`:
+
+- `samples/sample_lab_report.txt`
+- `samples/sample_table.csv`
+- `samples/sample_workbook.xlsx`
+- `samples/sample_paper_like.txt`
+
+To test each type locally, start Docker Compose, upload one sample at a time from `/documents/upload`, then open the document detail page. TXT and MD should show detected sections, CSV should show a table block and table chunk, and XLSX should show one table block per sheet. For PDF testing, upload a small text-based PDF; scanned PDFs are expected to fail until OCR support is added.
 
 ## Local Development Without Docker
 

@@ -46,6 +46,7 @@ class DocumentPageRead(ApiModel):
     image_key: str | None = Field(default=None, serialization_alias="imageKey")
     width: float | None = None
     height: float | None = None
+    metadata_: dict | None = Field(default=None, serialization_alias="metadata")
     created_at: datetime = Field(serialization_alias="createdAt")
 
 

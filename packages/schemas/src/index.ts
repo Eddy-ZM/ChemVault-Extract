@@ -44,6 +44,7 @@ export interface DocumentPage {
   imageKey: string | null;
   width: number | null;
   height: number | null;
+  metadata: Record<string, unknown> | null;
   createdAt: string;
 }
 
