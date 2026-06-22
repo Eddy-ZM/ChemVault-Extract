@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "chemvault-extract",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-06-22",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "chemvault-extract"
+    }
+  ],
+  "routes": [
+    {
+      "pattern": "app.chemvault.science",
+      "custom_domain": true
+    }
+  ],
+  "vars": {
+    "API_BASE_URL": "https://api.chemvault.science"
+  }
+}

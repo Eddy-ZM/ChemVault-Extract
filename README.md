@@ -101,3 +101,44 @@ uvicorn app.main:app --reload
 ```
 
 For non-Docker frontend development, set `API_BASE_URL=http://localhost:8000` in `.env`.
+
+## Cloudflare Frontend Deployment
+
+The Next.js frontend is configured for Cloudflare Workers through OpenNext.
+
+Production target:
+
+- Worker: `chemvault-extract`
+- Custom domain: `app.chemvault.science`
+- Zone: `chemvault.science`
+
+GitHub automatic deployment is configured in `.github/workflows/deploy-cloudflare.yml`.
+Every push to `main` that changes the frontend, shared packages, package lockfile, or the workflow builds the Next.js app with OpenNext and deploys it with Wrangler.
+
+Required GitHub secret:
+
+- `CLOUDFLARE_API_TOKEN`: a Cloudflare API token with permission to deploy the `chemvault-extract` Worker and manage its custom domain route.
+
+Suggested token permissions:
+
+- Account: `Workers Scripts Write`
+- Zone (`chemvault.science`): `Workers Routes Write`
+- Zone (`chemvault.science`): `Zone Read`
+
+Set the secret with:
+
+```bash
+gh secret set CLOUDFLARE_API_TOKEN --repo Eddy-ZM/ChemVault-Extract
+```
+
+The Worker config lives in `apps/web/wrangler.jsonc`. It sets `API_BASE_URL=https://api.chemvault.science` for the deployed frontend; update that value when the production API endpoint changes.
+
+Manual deployment from an authenticated machine:
+
+```bash
+npm ci
+npm run build:cloudflare -w apps/web
+CLOUDFLARE_ACCOUNT_ID=20f69e8d2aebbadbff2b6ffa36efee50 \
+  CLOUDFLARE_API_TOKEN=... \
+  npm run deploy:cloudflare -w apps/web
+```
