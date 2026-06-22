@@ -26,6 +26,7 @@ from app.models import (
 from app.queue import JobQueue
 from app.schemas import (
     AICostEstimateRead,
+    AIExtractionJobResponse,
     DocumentBlockRead,
     DocumentChunkRead,
     DocumentExtractionsRead,
@@ -106,6 +107,35 @@ def _assert_ai_extraction_allowed(db: Session) -> None:
         raise HTTPException(status_code=400, detail="Monthly AI extraction limit reached.")
 
 
+def _document_chunks_for_ai(db: Session, document_id: str) -> list[DocumentChunk]:
+    chunks = db.scalars(
+        select(DocumentChunk).where(DocumentChunk.document_id == document_id).order_by(DocumentChunk.chunk_index)
+    ).all()
+    if not chunks:
+        raise HTTPException(
+            status_code=400,
+            detail="Document has no parsed chunks. Parse the document before running AI extraction.",
+        )
+    return chunks
+
+
+def _ai_cost_estimate_response(document_id: str, chunks: list[DocumentChunk]) -> AICostEstimateRead:
+    settings = get_settings()
+    ai_settings = get_ai_settings(settings)
+    estimate = estimate_ai_cost_for_chunks(document_id=document_id, chunks=chunks, ai_settings=ai_settings)
+    return AICostEstimateRead.model_validate(
+        {
+            "document_id": estimate.document_id,
+            "selected_chunks": estimate.selected_chunks,
+            "estimated_input_tokens": estimate.estimated_input_tokens,
+            "estimated_output_tokens": estimate.estimated_output_tokens,
+            "model": estimate.model,
+            "estimated_cost_usd": estimate.estimated_cost_usd,
+            "warning": estimate.warning,
+        }
+    )
+
+
 @router.get("", response_model=list[DocumentWithLatestJob])
 def list_documents(db: Session = Depends(get_db)) -> list[DocumentWithLatestJob]:
     documents = db.scalars(select(Document).order_by(Document.created_at.desc(), Document.id.desc())).all()
@@ -178,22 +208,8 @@ def get_document_chunks(document_id: str, db: Session = Depends(get_db)) -> list
 def estimate_document_ai_cost(document_id: str, db: Session = Depends(get_db)) -> AICostEstimateRead:
     if db.get(Document, document_id) is None:
         raise HTTPException(status_code=404, detail="Document not found")
-    settings = get_settings()
-    ai_settings = get_ai_settings(settings)
-    chunks = db.scalars(
-        select(DocumentChunk).where(DocumentChunk.document_id == document_id).order_by(DocumentChunk.chunk_index)
-    ).all()
-    estimate = estimate_ai_cost_for_chunks(document_id=document_id, chunks=chunks, ai_settings=ai_settings)
-    return AICostEstimateRead.model_validate(
-        {
-            "document_id": estimate.document_id,
-            "selected_chunks": estimate.selected_chunks,
-            "estimated_input_tokens": estimate.estimated_input_tokens,
-            "estimated_output_tokens": estimate.estimated_output_tokens,
-            "model": estimate.model,
-            "estimated_cost_usd": estimate.estimated_cost_usd,
-        }
-    )
+    chunks = _document_chunks_for_ai(db, document_id)
+    return _ai_cost_estimate_response(document_id, chunks)
 
 
 @router.post("/upload", response_model=UploadDocumentResponse, status_code=status.HTTP_201_CREATED)
@@ -255,23 +271,30 @@ def create_extraction_job(
     return ExtractionJobRead.model_validate(job)
 
 
-@router.post("/{document_id}/extract-ai", response_model=ExtractionJobRead, status_code=status.HTTP_201_CREATED)
+@router.post("/{document_id}/extract-ai", response_model=AIExtractionJobResponse, status_code=status.HTTP_201_CREATED)
 def create_ai_extraction_job(
     document_id: str,
     db: Session = Depends(get_db),
     queue: JobQueue = Depends(get_queue),
-) -> ExtractionJobRead:
+) -> AIExtractionJobResponse:
     document = db.get(Document, document_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
     _assert_ai_extraction_allowed(db)
+    chunks = _document_chunks_for_ai(db, document_id)
+    estimated_cost = _ai_cost_estimate_response(document_id, chunks)
 
     job = ExtractionJob(document_id=document.id, job_type=JobType.AI_EXTRACTION.value, status=JobStatus.QUEUED.value)
     db.add(job)
     db.commit()
     db.refresh(job)
     queue.push_job(job.id)
-    return ExtractionJobRead.model_validate(job)
+    return AIExtractionJobResponse.model_validate(
+        {
+            "job": ExtractionJobRead.model_validate(job),
+            "estimated_cost": estimated_cost,
+        }
+    )
 
 
 @router.get("/{document_id}/extractions", response_model=DocumentExtractionsRead)

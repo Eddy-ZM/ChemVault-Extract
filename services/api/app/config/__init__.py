@@ -18,8 +18,8 @@ class Settings(BaseSettings):
 
     ai_provider: str = "openai"
     openai_api_key: str | None = None
-    openai_model: str = "gpt-4.1-mini"
-    openai_fallback_model: str = "gpt-5.5"
+    openai_model: str = "gpt-5.4"
+    openai_fallback_model: str = "gpt-5.4"
     ai_max_chunks_per_document: int = 20
     ai_max_chunk_chars: int = 6000
     ai_enable_fallback_model: bool = False

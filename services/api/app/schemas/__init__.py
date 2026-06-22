@@ -1,5 +1,6 @@
 from app.schemas.documents import (
     AICostEstimateRead,
+    AIExtractionJobResponse,
     DocumentBlockRead,
     DocumentChunkRead,
     DocumentExtractionsRead,
@@ -15,6 +16,7 @@ from app.schemas.documents import (
 __all__ = [
     "DocumentRead",
     "AICostEstimateRead",
+    "AIExtractionJobResponse",
     "DocumentPageRead",
     "DocumentBlockRead",
     "DocumentChunkRead",

@@ -19,9 +19,14 @@ CHUNK_SECTION_PRIORITY = (
 )
 
 
-MODEL_PRICING_USD_PER_1M = {
-    "gpt-4.1-mini": {"input_per_1m": 0.40, "output_per_1m": 1.60},
-    "gpt-5.5": {"input_per_1m": 5.00, "output_per_1m": 30.00},
+AI_COST_WARNING = "AI extraction may incur OpenAI API costs."
+
+MODEL_PRICING = {
+    "gpt-5.4": {
+        "input_per_1m": 2.50,
+        "output_per_1m": 15.00,
+        "cached_input_per_1m": 0.25,
+    },
 }
 
 
@@ -57,6 +62,7 @@ class CostEstimate:
     estimated_output_tokens: int
     model: str
     estimated_cost_usd: float
+    warning: str = AI_COST_WARNING
 
 
 def get_ai_settings(settings: Settings) -> AISettings:
@@ -77,11 +83,24 @@ def estimate_tokens(text: str, ratio: float = 0.25) -> int:
     return max(1, int(len(text) * ratio)) if text else 0
 
 
-def estimate_cost_usd(*, model: str, input_tokens: int, output_tokens: int) -> float:
-    pricing = MODEL_PRICING_USD_PER_1M.get(model, MODEL_PRICING_USD_PER_1M["gpt-4.1-mini"])
+def estimate_ai_cost(*, input_tokens: int, output_tokens: int, model: str) -> dict:
+    pricing = MODEL_PRICING.get(model, MODEL_PRICING["gpt-5.4"])
     input_cost = (input_tokens / 1_000_000) * pricing["input_per_1m"]
     output_cost = (output_tokens / 1_000_000) * pricing["output_per_1m"]
-    return round(input_cost + output_cost, 6)
+    estimated_cost = input_cost + output_cost
+    return {
+        "model": model,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "input_cost_usd": round(input_cost, 6),
+        "output_cost_usd": round(output_cost, 6),
+        "estimated_cost_usd": round(estimated_cost, 6),
+        "pricing": pricing,
+    }
+
+
+def estimate_cost_usd(*, model: str, input_tokens: int, output_tokens: int) -> float:
+    return estimate_ai_cost(input_tokens=input_tokens, output_tokens=output_tokens, model=model)["estimated_cost_usd"]
 
 
 def select_chunks_for_ai(chunks: list[DocumentChunk], ai_settings: AISettings) -> list[SelectedChunk]:
@@ -125,6 +144,7 @@ def estimate_ai_cost_for_chunks(
     selected_text = "\n\n".join(chunk.text for chunk in selected)
     input_tokens = estimate_tokens(selected_text, ai_settings.estimated_input_token_ratio) * extractor_calls
     output_tokens = int(input_tokens * 0.25)
+    cost = estimate_ai_cost(input_tokens=input_tokens, output_tokens=output_tokens, model=ai_settings.default_model)
     return CostEstimate(
         document_id=document_id,
         selected_chunks=len(selected),
@@ -132,11 +152,7 @@ def estimate_ai_cost_for_chunks(
         estimated_input_tokens=input_tokens,
         estimated_output_tokens=output_tokens,
         model=ai_settings.default_model,
-        estimated_cost_usd=estimate_cost_usd(
-            model=ai_settings.default_model,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-        ),
+        estimated_cost_usd=cost["estimated_cost_usd"],
     )
 
 

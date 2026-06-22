@@ -30,7 +30,7 @@ def test_extract_ai_endpoint_requires_openai_api_key(api_client):
     assert response.json()["detail"] == "OPENAI_API_KEY is missing. Please configure it before running AI extraction."
 
 
-def test_extract_ai_endpoint_creates_openai_job_when_key_is_configured(api_client, fake_queue, monkeypatch):
+def test_extract_ai_endpoint_requires_parsed_chunks(api_client, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     get_settings.cache_clear()
     upload = api_client.post(
@@ -40,12 +40,34 @@ def test_extract_ai_endpoint_creates_openai_job_when_key_is_configured(api_clien
 
     response = api_client.post(f"/documents/{upload['document']['id']}/extract-ai")
 
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Document has no parsed chunks. Parse the document before running AI extraction."
+
+
+def test_extract_ai_endpoint_creates_openai_job_when_key_is_configured(
+    api_client,
+    fake_queue,
+    fake_storage,
+    monkeypatch,
+):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    get_settings.cache_clear()
+    upload = api_client.post(
+        "/documents/upload",
+        files={"file": ("paper.md", io.BytesIO(b"# Abstract\nA test paper."), "text/markdown")},
+    ).json()
+    process_job(upload["job"]["id"], storage=fake_storage, step_delay_seconds=0)
+
+    response = api_client.post(f"/documents/{upload['document']['id']}/extract-ai")
+
     assert response.status_code == 201
     body = response.json()
-    assert body["documentId"] == upload["document"]["id"]
-    assert body["jobType"] == "ai_extraction"
-    assert body["status"] == "queued"
-    assert fake_queue.pushed[-1] == body["id"]
+    assert body["job"]["documentId"] == upload["document"]["id"]
+    assert body["job"]["jobType"] == "ai_extraction"
+    assert body["job"]["status"] == "queued"
+    assert body["estimatedCost"]["model"] == "gpt-5.4"
+    assert body["estimatedCost"]["warning"] == "AI extraction may incur OpenAI API costs."
+    assert fake_queue.pushed[-1] == body["job"]["id"]
 
 
 def test_estimate_ai_cost_returns_selected_chunks_and_model(api_client, fake_storage):
@@ -74,11 +96,12 @@ def test_estimate_ai_cost_returns_selected_chunks_and_model(api_client, fake_sto
     assert body["selectedChunks"] <= 20
     assert body["estimatedInputTokens"] > 0
     assert body["estimatedOutputTokens"] > 0
-    assert body["model"] == "gpt-4.1-mini"
+    assert body["model"] == "gpt-5.4"
     assert body["estimatedCostUsd"] > 0
+    assert body["warning"] == "AI extraction may incur OpenAI API costs."
 
 
-def test_extract_ai_endpoint_enforces_monthly_limit(api_client, monkeypatch):
+def test_extract_ai_endpoint_enforces_monthly_limit(api_client, fake_storage, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setenv("AI_MONTHLY_FREE_FILE_LIMIT", "1")
     get_settings.cache_clear()
@@ -86,6 +109,7 @@ def test_extract_ai_endpoint_enforces_monthly_limit(api_client, monkeypatch):
         "/documents/upload",
         files={"file": ("paper.md", io.BytesIO(b"# Abstract\nA test paper."), "text/markdown")},
     ).json()
+    process_job(upload["job"]["id"], storage=fake_storage, step_delay_seconds=0)
     with SessionLocal() as db:
         db.add(
             ExtractionJob(
@@ -121,7 +145,7 @@ def test_worker_runs_offline_extraction_without_creating_fake_records(api_client
     ).json()
     process_job(upload["job"]["id"], storage=fake_storage, step_delay_seconds=0)
 
-    ai_job = api_client.post(f"/documents/{upload['document']['id']}/extract-ai").json()
+    ai_job = api_client.post(f"/documents/{upload['document']['id']}/extract-ai").json()["job"]
     process_job(ai_job["id"], storage=fake_storage, step_delay_seconds=0)
 
     with SessionLocal() as db:
@@ -187,7 +211,7 @@ def test_worker_openai_mode_records_cost_fields_without_sending_full_document(
         },
     ).json()
     process_job(upload["job"]["id"], storage=fake_storage, step_delay_seconds=0)
-    ai_job = api_client.post(f"/documents/{upload['document']['id']}/extract-ai").json()
+    ai_job = api_client.post(f"/documents/{upload['document']['id']}/extract-ai").json()["job"]
 
     process_job(ai_job["id"], storage=fake_storage, step_delay_seconds=0)
 
@@ -199,7 +223,7 @@ def test_worker_openai_mode_records_cost_fields_without_sending_full_document(
 
     assert {run.status for run in extractor_runs} == {"completed"}
     assert all(run.provider == "openai" for run in extractor_runs)
-    assert all(run.model_name == "gpt-4.1-mini" for run in extractor_runs)
+    assert all(run.model_name == "gpt-5.4" for run in extractor_runs)
     assert all(run.input_tokens_estimated > 0 for run in extractor_runs)
     assert all(run.output_tokens_estimated > 0 for run in extractor_runs)
     assert all(run.estimated_cost_usd > 0 for run in extractor_runs)

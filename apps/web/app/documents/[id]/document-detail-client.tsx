@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { AICostEstimate, Document, DocumentBlock, DocumentChunk, DocumentPage } from "@chemvault-extract/schemas";
+import type {
+  AICostEstimate,
+  AIExtractionJobResponse,
+  Document,
+  DocumentBlock,
+  DocumentChunk,
+  DocumentPage,
+} from "@chemvault-extract/schemas";
 import { Calculator, RefreshCw, Sparkles } from "lucide-react";
 
 import { StatusBadge } from "@/components/status-badge";
@@ -80,11 +87,13 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
     setStartingExtraction(true);
     try {
       const response = await fetch(`/api/documents/${document.id}/extract-ai`, { method: "POST" });
-      const body = await response.json();
+      const body = (await response.json()) as unknown;
       if (!response.ok) {
-        throw new Error(body.detail ?? "Unable to start extraction");
+        throw new Error(getErrorDetail(body, "Unable to start extraction"));
       }
-      setDocument((current) => ({ ...current, latestJob: body }));
+      const extractionResponse = body as AIExtractionJobResponse;
+      setDocument((current) => ({ ...current, latestJob: extractionResponse.job }));
+      setCostEstimate(extractionResponse.estimatedCost);
       setError(null);
       void refresh();
     } catch (err) {
@@ -292,7 +301,7 @@ function JobStatusCard({
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={onEstimateCost} disabled={estimatingCost}>
             <Calculator data-icon="inline-start" />
-            Estimate cost
+            Estimate AI Cost
           </Button>
           <Button variant="default" size="sm" onClick={onStartAiExtraction} disabled={Boolean(activeJob) || startingExtraction}>
             <Sparkles data-icon="inline-start" />
@@ -310,10 +319,13 @@ function JobStatusCard({
           </Button>
         </div>
         {costEstimate ? (
-          <div className="grid gap-3 rounded-md border p-3 text-sm sm:grid-cols-3">
+          <div className="grid gap-3 rounded-md border p-3 text-sm sm:grid-cols-2 xl:grid-cols-5">
             <DetailItem label="Estimated cost" value={`$${costEstimate.estimatedCostUsd.toFixed(4)}`} />
             <DetailItem label="Selected chunks" value={String(costEstimate.selectedChunks)} />
+            <DetailItem label="Input tokens" value={String(costEstimate.estimatedInputTokens)} />
+            <DetailItem label="Output tokens" value={String(costEstimate.estimatedOutputTokens)} />
             <DetailItem label="Model" value={costEstimate.model} />
+            <p className="text-xs text-muted-foreground sm:col-span-2 xl:col-span-5">{costEstimate.warning}</p>
           </div>
         ) : null}
       </CardContent>
@@ -523,6 +535,18 @@ function formatPageRange(chunk: DocumentChunk): string {
   if (!chunk.pageStart && !chunk.pageEnd) return "-";
   if (chunk.pageStart === chunk.pageEnd) return String(chunk.pageStart);
   return `${chunk.pageStart ?? "?"}-${chunk.pageEnd ?? "?"}`;
+}
+
+function getErrorDetail(value: unknown, fallback: string): string {
+  if (
+    value &&
+    typeof value === "object" &&
+    "detail" in value &&
+    typeof (value as { detail?: unknown }).detail === "string"
+  ) {
+    return (value as { detail: string }).detail;
+  }
+  return fallback;
 }
 
 function EmptyMessage({ message }: { message: string }) {

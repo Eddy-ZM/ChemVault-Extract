@@ -1,5 +1,6 @@
 import type {
   AICostEstimate,
+  AIExtractionJobResponse,
   Document,
   DocumentBlock,
   DocumentChunk,
@@ -53,8 +54,8 @@ export function getDocumentChunks(id: string): Promise<DocumentChunk[]> {
   return apiFetch<DocumentChunk[]>(`/documents/${id}/chunks`);
 }
 
-export function runAiExtraction(id: string): Promise<ExtractionJob> {
-  return apiFetch<ExtractionJob>(`/documents/${id}/extract-ai`, { method: "POST" });
+export function runAiExtraction(id: string): Promise<AIExtractionJobResponse> {
+  return apiFetch<AIExtractionJobResponse>(`/documents/${id}/extract-ai`, { method: "POST" });
 }
 
 export function estimateAiCost(id: string): Promise<AICostEstimate> {

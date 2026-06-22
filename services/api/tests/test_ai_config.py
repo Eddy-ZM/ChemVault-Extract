@@ -1,4 +1,4 @@
-from app.config.ai import AISettings, estimate_tokens, select_chunks_for_ai
+from app.config.ai import AISettings, estimate_ai_cost, estimate_tokens, select_chunks_for_ai
 from app.extractors.base import to_openai_strict_json_schema
 from app.extractors.schemas import MeasurementExtraction, MeasurementExtractionOutput
 from app.models import DocumentChunk
@@ -7,8 +7,8 @@ from app.models import DocumentChunk
 def test_select_chunks_for_ai_prioritizes_sections_excludes_references_and_truncates():
     settings = AISettings(
         provider="openai",
-        default_model="gpt-4.1-mini",
-        fallback_model="gpt-5.5",
+        default_model="gpt-5.4",
+        fallback_model="gpt-5.4",
         max_chunks_per_document=2,
         max_chunk_chars=10,
         enable_fallback_model=False,
@@ -61,6 +61,24 @@ def test_select_chunks_for_ai_prioritizes_sections_excludes_references_and_trunc
     assert selected[0].text == "x" * 10
     assert selected[0].metadata == {"truncated": True, "original_chars": 25, "used_chars": 10}
     assert estimate_tokens("abcd", 0.25) == 1
+
+
+def test_estimate_ai_cost_uses_configured_gpt_54_pricing():
+    estimate = estimate_ai_cost(input_tokens=25_000, output_tokens=6_250, model="gpt-5.4")
+
+    assert estimate == {
+        "model": "gpt-5.4",
+        "input_tokens": 25_000,
+        "output_tokens": 6_250,
+        "input_cost_usd": 0.0625,
+        "output_cost_usd": 0.09375,
+        "estimated_cost_usd": 0.15625,
+        "pricing": {
+            "input_per_1m": 2.5,
+            "output_per_1m": 15.0,
+            "cached_input_per_1m": 0.25,
+        },
+    }
 
 
 def test_openai_json_schema_is_strict_for_nested_models():

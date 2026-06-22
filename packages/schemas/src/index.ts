@@ -100,7 +100,7 @@ export interface ReactionRecord {
   reactionName: string | null;
   reactants: Record<string, unknown> | null;
   products: Record<string, unknown> | null;
-  conditions: Record<string, unknown> | null;
+  conditions: Record<string, unknown> | Array<Record<string, unknown>> | null;
   yieldText: string | null;
   evidence: Evidence;
   confidence: number | null;
@@ -116,7 +116,7 @@ export interface MeasurementRecord {
   valueText: string | null;
   valueNumeric: number | null;
   unit: string | null;
-  conditions: Record<string, unknown> | null;
+  conditions: Record<string, unknown> | Array<Record<string, unknown>> | null;
   evidence: Evidence;
   confidence: number | null;
   createdAt: string;
@@ -155,4 +155,10 @@ export interface AICostEstimate {
   estimatedOutputTokens: number;
   model: string;
   estimatedCostUsd: number;
+  warning: string;
+}
+
+export interface AIExtractionJobResponse {
+  job: ExtractionJob;
+  estimatedCost: AICostEstimate;
 }

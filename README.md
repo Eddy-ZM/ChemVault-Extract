@@ -49,7 +49,7 @@ Default MinIO credentials are `chemvault` / `chemvault-secret`.
 3. The upload page shows the created document ID and extraction job ID.
 4. Open the document detail page to watch the worker update the job status and parsed preview.
 5. Use the `Preview`, `Pages`, `Blocks`, and `Chunks` tabs to inspect parser output.
-6. Click `Estimate cost` to preview selected chunks, model, and estimated OpenAI cost.
+6. Click `Estimate AI Cost` to preview selected chunks, model, and estimated OpenAI cost.
 7. Click `Run AI Extraction` to run the structured extraction pipeline. This requires `OPENAI_API_KEY`.
 8. Open `/documents/{document_id}/review` to inspect review items.
 9. Confirm the object exists in MinIO under the `chemvault-documents` bucket.
@@ -149,30 +149,30 @@ To test each type locally, start Docker Compose, upload one sample at a time fro
 
 The extraction layer uses `AI_PROVIDER=openai` by default. It sends only selected `DocumentChunk` text to OpenAI, never the original PDF or full uploaded object. If `OPENAI_API_KEY` is missing, `POST /documents/{document_id}/extract-ai` returns `OPENAI_API_KEY is missing. Please configure it before running AI extraction.`
 
-OpenAI API usage is metered. Use `POST /documents/{document_id}/estimate-ai-cost` or the `Estimate cost` button before running extraction.
+OpenAI API usage is metered. Use `POST /documents/{document_id}/estimate-ai-cost` or the `Estimate AI Cost` button before running extraction.
 
 Configure API access in `.env`:
 
 ```bash
 AI_PROVIDER=openai
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4.1-mini
+OPENAI_MODEL=gpt-5.4
+OPENAI_FALLBACK_MODEL=gpt-5.4
 AI_ENABLE_FALLBACK_MODEL=false
 ```
 
 When the user clicks `Run AI Extraction`, the API creates an `ai_extraction` job. The worker:
 
-1. Uses existing chunks when the document is already parsed.
-2. Parses first if no chunks exist.
-3. Selects at most `AI_MAX_CHUNKS_PER_DOCUMENT` chunks by section priority.
-4. Truncates each selected chunk to `AI_MAX_CHUNK_CHARS`.
-5. Moves the job through `extracting`, `validating`, and `review_ready`.
-6. Runs the four extractor interfaces:
+1. Requires existing parsed `DocumentChunk` rows before creating the AI job.
+2. Selects at most `AI_MAX_CHUNKS_PER_DOCUMENT` chunks by section priority.
+3. Truncates each selected chunk to `AI_MAX_CHUNK_CHARS`.
+4. Moves the job through `extracting`, `validating`, and `review_ready`.
+5. Runs the four extractor interfaces:
    - `metadata`
    - `chemical_entities`
    - `reactions`
    - `measurements`
-7. Saves one `ExtractionRun` per extractor with provider, model, selected chunk IDs, estimated tokens, estimated cost, raw output, and parsed output.
+6. Saves one `ExtractionRun` per extractor with provider, model, selected chunk IDs, estimated tokens, estimated cost, raw output, and parsed output.
 
 Chunk selection priority:
 
@@ -189,8 +189,7 @@ References are excluded. Long chunks are truncated and recorded with `truncated`
 
 Cost estimates use centralized prices in `services/api/app/config/ai.py`:
 
-- `gpt-4.1-mini`: input `$0.40 / 1M`, output `$1.60 / 1M`
-- `gpt-5.5`: input `$5.00 / 1M`, output `$30.00 / 1M`
+- `gpt-5.4`: input `$2.50 / 1M`, cached input `$0.25 / 1M`, output `$15.00 / 1M`
 
 The extractor modules live in `services/api/app/extractors`:
 
@@ -253,8 +252,8 @@ For non-Docker frontend development, set `API_BASE_URL=http://localhost:8000` in
 - `WORKER_STEP_DELAY_SECONDS`: Optional local delay between worker status transitions.
 - `AI_PROVIDER`: AI provider. Use `openai` for the MVP.
 - `OPENAI_API_KEY`: Required before running AI extraction.
-- `OPENAI_MODEL`: Default extraction model. Defaults to `gpt-4.1-mini`.
-- `OPENAI_FALLBACK_MODEL`: Optional fallback model. Defaults to `gpt-5.5`.
+- `OPENAI_MODEL`: Default extraction model. Defaults to `gpt-5.4`.
+- `OPENAI_FALLBACK_MODEL`: Optional fallback model. Defaults to `gpt-5.4`.
 - `AI_MAX_CHUNKS_PER_DOCUMENT`: Maximum selected chunks sent to OpenAI per document. Defaults to `20`.
 - `AI_MAX_CHUNK_CHARS`: Maximum characters per selected chunk. Defaults to `6000`.
 - `AI_ENABLE_FALLBACK_MODEL`: Set to `true` to enable fallback retry. Defaults to `false`.

@@ -152,3 +152,9 @@ class AICostEstimateRead(ApiModel):
     estimated_output_tokens: int = Field(serialization_alias="estimatedOutputTokens")
     model: str
     estimated_cost_usd: float = Field(serialization_alias="estimatedCostUsd")
+    warning: str
+
+
+class AIExtractionJobResponse(ApiModel):
+    job: ExtractionJobRead
+    estimated_cost: AICostEstimateRead = Field(serialization_alias="estimatedCost")
