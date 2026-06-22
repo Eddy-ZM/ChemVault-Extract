@@ -1,0 +1,14 @@
+{
+  "name": "chemvault-extract",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/web",
+    "packages/schemas"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/web",
+    "start": "npm run start -w apps/web"
+  }
+}
