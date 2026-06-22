@@ -29,6 +29,14 @@ class FakeStorage:
             }
         )
 
+    def download_file(self, key: str, destination_path: str) -> None:
+        for item in self.saved:
+            if item["key"] == key:
+                with open(destination_path, "wb") as file:
+                    file.write(item["content"])
+                return
+        raise FileNotFoundError(key)
+
 
 class FakeQueue:
     def __init__(self) -> None:

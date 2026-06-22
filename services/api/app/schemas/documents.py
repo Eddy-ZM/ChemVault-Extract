@@ -36,3 +36,39 @@ class DocumentWithLatestJob(DocumentRead):
 class UploadDocumentResponse(ApiModel):
     document: DocumentRead
     job: ExtractionJobRead
+
+
+class DocumentPageRead(ApiModel):
+    id: str
+    document_id: str = Field(serialization_alias="documentId")
+    page_number: int = Field(serialization_alias="pageNumber")
+    text: str | None = None
+    image_key: str | None = Field(default=None, serialization_alias="imageKey")
+    width: float | None = None
+    height: float | None = None
+    created_at: datetime = Field(serialization_alias="createdAt")
+
+
+class DocumentBlockRead(ApiModel):
+    id: str
+    document_id: str = Field(serialization_alias="documentId")
+    page_number: int | None = Field(default=None, serialization_alias="pageNumber")
+    block_type: str = Field(serialization_alias="blockType")
+    section: str | None = None
+    text: str | None = None
+    html: str | None = None
+    bbox: dict | None = None
+    metadata_: dict | None = Field(default=None, serialization_alias="metadata")
+    created_at: datetime = Field(serialization_alias="createdAt")
+
+
+class DocumentChunkRead(ApiModel):
+    id: str
+    document_id: str = Field(serialization_alias="documentId")
+    chunk_index: int = Field(serialization_alias="chunkIndex")
+    section: str | None = None
+    page_start: int | None = Field(default=None, serialization_alias="pageStart")
+    page_end: int | None = Field(default=None, serialization_alias="pageEnd")
+    text: str
+    token_count: int | None = Field(default=None, serialization_alias="tokenCount")
+    created_at: datetime = Field(serialization_alias="createdAt")

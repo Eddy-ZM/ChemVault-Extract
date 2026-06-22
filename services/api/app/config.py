@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     default_user_email: str = "local@chemvault.extract"
     default_project_name: str = "Default Project"
     worker_step_delay_seconds: float = 1.0
+    max_chunk_tokens: int = 900
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

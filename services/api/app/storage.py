@@ -53,3 +53,6 @@ class S3Storage:
             self.client.upload_fileobj(fileobj, self.bucket, key, ExtraArgs=extra_args)
         else:
             self.client.upload_fileobj(fileobj, self.bucket, key)
+
+    def download_file(self, key: str, destination_path: str) -> None:
+        self.client.download_file(self.bucket, key, destination_path)

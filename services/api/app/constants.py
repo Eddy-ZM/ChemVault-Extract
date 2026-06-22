@@ -3,6 +3,7 @@ from enum import StrEnum
 
 class DocumentStatus(StrEnum):
     UPLOADED = "uploaded"
+    PARSED = "parsed"
     REVIEW_READY = "review_ready"
     FAILED = "failed"
 

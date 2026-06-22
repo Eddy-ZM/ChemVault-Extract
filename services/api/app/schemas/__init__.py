@@ -1,4 +1,7 @@
 from app.schemas.documents import (
+    DocumentBlockRead,
+    DocumentChunkRead,
+    DocumentPageRead,
     DocumentRead,
     DocumentWithLatestJob,
     ExtractionJobRead,
@@ -7,6 +10,9 @@ from app.schemas.documents import (
 
 __all__ = [
     "DocumentRead",
+    "DocumentPageRead",
+    "DocumentBlockRead",
+    "DocumentChunkRead",
     "DocumentWithLatestJob",
     "ExtractionJobRead",
     "UploadDocumentResponse",

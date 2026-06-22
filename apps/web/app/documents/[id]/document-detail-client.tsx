@@ -1,20 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { Document } from "@chemvault-extract/schemas";
+import type { Document, DocumentBlock, DocumentChunk, DocumentPage } from "@chemvault-extract/schemas";
 import { RefreshCw } from "lucide-react";
 
 import { StatusBadge } from "@/components/status-badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate, statusLabel } from "@/lib/format";
 
 const visiblePipeline = ["queued", "parsing", "chunking", "review_ready"];
 
 export function DocumentDetailClient({ initialDocument }: { initialDocument: Document }) {
   const [document, setDocument] = useState(initialDocument);
+  const [pages, setPages] = useState<DocumentPage[]>([]);
+  const [blocks, setBlocks] = useState<DocumentBlock[]>([]);
+  const [chunks, setChunks] = useState<DocumentChunk[]>([]);
   const [error, setError] = useState<string | null>(null);
   const latestJob = document.latestJob;
   const currentIndex = useMemo(
@@ -22,103 +28,302 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
     [latestJob?.status],
   );
 
+  const refresh = useCallback(async () => {
+    try {
+      const documentResponse = await fetch(`/api/documents/${document.id}`);
+      const documentBody = await documentResponse.json();
+      if (!documentResponse.ok) {
+        throw new Error(documentBody.detail ?? "Unable to refresh document");
+      }
+      setDocument(documentBody as Document);
+
+      const [pagesResponse, blocksResponse, chunksResponse] = await Promise.all([
+        fetch(`/api/documents/${document.id}/pages`),
+        fetch(`/api/documents/${document.id}/blocks`),
+        fetch(`/api/documents/${document.id}/chunks`),
+      ]);
+      if (pagesResponse.ok) setPages((await pagesResponse.json()) as DocumentPage[]);
+      if (blocksResponse.ok) setBlocks((await blocksResponse.json()) as DocumentBlock[]);
+      if (chunksResponse.ok) setChunks((await chunksResponse.json()) as DocumentChunk[]);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to refresh document");
+    }
+  }, [document.id]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
   useEffect(() => {
     if (latestJob?.status === "review_ready" || latestJob?.status === "failed") return;
 
-    const interval = window.setInterval(async () => {
-      try {
-        const response = await fetch(`/api/documents/${document.id}`);
-        const body = await response.json();
-        if (!response.ok) {
-          throw new Error(body.detail ?? "Unable to refresh document");
-        }
-        setDocument(body as Document);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unable to refresh document");
-      }
+    const interval = window.setInterval(() => {
+      void refresh();
     }, 2000);
 
     return () => window.clearInterval(interval);
-  }, [document.id, latestJob?.status]);
+  }, [latestJob?.status, refresh]);
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-      <Card>
-        <CardHeader>
-          <CardTitle>{document.originalFilename}</CardTitle>
-          <CardDescription>Document ID: {document.id}</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <DetailItem label="Stored filename" value={document.filename} />
-          <DetailItem label="File type" value={document.fileType.toUpperCase()} />
-          <DetailItem label="MIME type" value={document.mimeType} />
-          <DetailItem label="Uploaded" value={formatDate(document.createdAt)} />
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-muted-foreground">Upload status</span>
-            <StatusBadge status={document.status} />
-          </div>
-          <DetailItem label="Storage key" value={document.storageKey} mono />
-        </CardContent>
-      </Card>
+    <div className="flex flex-col gap-4">
+      {error ? (
+        <Alert variant="destructive">
+          <AlertTitle>Refresh failed</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
 
-      <div className="flex flex-col gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between gap-3 text-base">
-              Extraction job
-              <StatusBadge status={latestJob?.status} />
-            </CardTitle>
-            <CardDescription>{latestJob ? `Job ID: ${latestJob.id}` : "No extraction job"}</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {latestJob ? (
-              <>
-                <div className="flex flex-col gap-3">
-                  {visiblePipeline.map((status, index) => {
-                    const complete = latestJob.status === "review_ready" || index <= currentIndex;
-                    return (
-                      <div key={status} className="flex items-center gap-3">
-                        <div
-                          className={
-                            complete
-                              ? "size-2.5 rounded-full bg-primary"
-                              : "size-2.5 rounded-full border border-border bg-background"
-                          }
-                        />
-                        <span className={complete ? "text-sm" : "text-sm text-muted-foreground"}>{statusLabel(status)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                {latestJob.error ? (
-                  <Alert variant="destructive">
-                    <AlertTitle>Job failed</AlertTitle>
-                    <AlertDescription>{latestJob.error}</AlertDescription>
-                  </Alert>
-                ) : null}
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">No job has been created for this document.</p>
-            )}
-            <div className="flex gap-2">
-              <Button asChild variant="outline" size="sm">
-                <Link href="/documents">Documents</Link>
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-                <RefreshCw data-icon="inline-start" />
-                Refresh
-              </Button>
+      <Tabs defaultValue="overview" className="flex flex-col gap-4">
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="pages">Pages</TabsTrigger>
+          <TabsTrigger value="blocks">Blocks</TabsTrigger>
+          <TabsTrigger value="chunks">Chunks</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="mt-0">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <DocumentMetadataCard document={document} pageCount={pages.length} blockCount={blocks.length} chunkCount={chunks.length} />
+            <JobStatusCard latestJob={latestJob} currentIndex={currentIndex} onRefresh={refresh} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="pages" className="mt-0">
+          <PagesPanel pages={pages} />
+        </TabsContent>
+
+        <TabsContent value="blocks" className="mt-0">
+          <BlocksPanel blocks={blocks} />
+        </TabsContent>
+
+        <TabsContent value="chunks" className="mt-0">
+          <ChunksPanel chunks={chunks} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function DocumentMetadataCard({
+  document,
+  pageCount,
+  blockCount,
+  chunkCount,
+}: {
+  document: Document;
+  pageCount: number;
+  blockCount: number;
+  chunkCount: number;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{document.originalFilename}</CardTitle>
+        <CardDescription>Document ID: {document.id}</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4 sm:grid-cols-2">
+        <DetailItem label="Stored filename" value={document.filename} />
+        <DetailItem label="File type" value={document.fileType.toUpperCase()} />
+        <DetailItem label="MIME type" value={document.mimeType} />
+        <DetailItem label="Uploaded" value={formatDate(document.createdAt)} />
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Document status</span>
+          <StatusBadge status={document.status} />
+        </div>
+        <DetailItem label="Storage key" value={document.storageKey} mono />
+        <DetailItem label="Parsed pages" value={String(pageCount)} />
+        <DetailItem label="Parsed blocks" value={String(blockCount)} />
+        <DetailItem label="Chunks" value={String(chunkCount)} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function JobStatusCard({
+  latestJob,
+  currentIndex,
+  onRefresh,
+}: {
+  latestJob: Document["latestJob"];
+  currentIndex: number;
+  onRefresh: () => void;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-3 text-base">
+          Extraction job
+          <StatusBadge status={latestJob?.status} />
+        </CardTitle>
+        <CardDescription>{latestJob ? `Job ID: ${latestJob.id}` : "No extraction job"}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {latestJob ? (
+          <>
+            <div className="flex flex-col gap-3">
+              {visiblePipeline.map((status, index) => {
+                const complete = latestJob.status === "review_ready" || index <= currentIndex;
+                return (
+                  <div key={status} className="flex items-center gap-3">
+                    <div
+                      className={
+                        complete
+                          ? "size-2.5 rounded-full bg-primary"
+                          : "size-2.5 rounded-full border border-border bg-background"
+                      }
+                    />
+                    <span className={complete ? "text-sm" : "text-sm text-muted-foreground"}>{statusLabel(status)}</span>
+                  </div>
+                );
+              })}
             </div>
-          </CardContent>
-        </Card>
-        {error ? (
-          <Alert variant="destructive">
-            <AlertTitle>Refresh failed</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-      </div>
+            {latestJob.error ? (
+              <Alert variant="destructive">
+                <AlertTitle>Job failed</AlertTitle>
+                <AlertDescription>{latestJob.error}</AlertDescription>
+              </Alert>
+            ) : null}
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">No job has been created for this document.</p>
+        )}
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/documents">Documents</Link>
+          </Button>
+          <Button variant="outline" size="sm" onClick={onRefresh}>
+            <RefreshCw data-icon="inline-start" />
+            Refresh
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PagesPanel({ pages }: { pages: DocumentPage[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Parsed pages</CardTitle>
+        <CardDescription>{pages.length} page records saved for this document</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {pages.length === 0 ? (
+          <EmptyMessage message="No parsed pages yet." />
+        ) : (
+          pages.map((page) => (
+            <div key={page.id} className="flex flex-col gap-2 rounded-md border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-medium">Page {page.pageNumber}</h3>
+                <span className="text-xs text-muted-foreground">
+                  {page.width && page.height ? `${Math.round(page.width)} x ${Math.round(page.height)}` : "text only"}
+                </span>
+              </div>
+              <p className="max-h-64 overflow-auto whitespace-pre-wrap text-sm text-muted-foreground">
+                {page.text || "No text extracted for this page."}
+              </p>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function BlocksPanel({ blocks }: { blocks: DocumentBlock[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Parsed blocks</CardTitle>
+        <CardDescription>{blocks.length} headings, paragraphs, and tables saved from the parser</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {blocks.length === 0 ? (
+          <EmptyMessage message="No parsed blocks yet." />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Type</TableHead>
+                <TableHead>Section</TableHead>
+                <TableHead>Page</TableHead>
+                <TableHead>Text</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {blocks.map((block) => (
+                <TableRow key={block.id}>
+                  <TableCell>
+                    <Badge variant={block.blockType === "table" ? "default" : "secondary"}>{block.blockType}</Badge>
+                  </TableCell>
+                  <TableCell>{block.section || "Unsectioned"}</TableCell>
+                  <TableCell>{block.pageNumber ?? "-"}</TableCell>
+                  <TableCell className="max-w-[560px]">
+                    <span className="line-clamp-3 text-sm text-muted-foreground">{block.text || block.html || "-"}</span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ChunksPanel({ chunks }: { chunks: DocumentChunk[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Chunks</CardTitle>
+        <CardDescription>{chunks.length} section-based chunks prepared for future AI extraction</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {chunks.length === 0 ? (
+          <EmptyMessage message="No chunks yet." />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Index</TableHead>
+                <TableHead>Section</TableHead>
+                <TableHead>Pages</TableHead>
+                <TableHead>Tokens</TableHead>
+                <TableHead>Preview</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {chunks.map((chunk) => (
+                <TableRow key={chunk.id}>
+                  <TableCell>{chunk.chunkIndex}</TableCell>
+                  <TableCell>{chunk.section || "Unsectioned"}</TableCell>
+                  <TableCell>{formatPageRange(chunk)}</TableCell>
+                  <TableCell>{chunk.tokenCount ?? "-"}</TableCell>
+                  <TableCell className="max-w-[620px]">
+                    <span className="line-clamp-3 text-sm text-muted-foreground">{chunk.text}</span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function formatPageRange(chunk: DocumentChunk): string {
+  if (!chunk.pageStart && !chunk.pageEnd) return "-";
+  if (chunk.pageStart === chunk.pageEnd) return String(chunk.pageStart);
+  return `${chunk.pageStart ?? "?"}-${chunk.pageEnd ?? "?"}`;
+}
+
+function EmptyMessage({ message }: { message: string }) {
+  return (
+    <div className="flex min-h-36 items-center justify-center rounded-md border border-dashed">
+      <p className="text-sm text-muted-foreground">{message}</p>
     </div>
   );
 }

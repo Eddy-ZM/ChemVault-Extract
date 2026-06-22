@@ -1,4 +1,4 @@
-import type { Document, ExtractionJob } from "@chemvault-extract/schemas";
+import type { Document, DocumentBlock, DocumentChunk, DocumentPage, ExtractionJob } from "@chemvault-extract/schemas";
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000";
 
@@ -26,6 +26,18 @@ export function getDocument(id: string): Promise<Document> {
 
 export function getJob(id: string): Promise<ExtractionJob> {
   return apiFetch<ExtractionJob>(`/jobs/${id}`);
+}
+
+export function getDocumentPages(id: string): Promise<DocumentPage[]> {
+  return apiFetch<DocumentPage[]>(`/documents/${id}/pages`);
+}
+
+export function getDocumentBlocks(id: string): Promise<DocumentBlock[]> {
+  return apiFetch<DocumentBlock[]>(`/documents/${id}/blocks`);
+}
+
+export function getDocumentChunks(id: string): Promise<DocumentChunk[]> {
+  return apiFetch<DocumentChunk[]>(`/documents/${id}/chunks`);
 }
 
 export { API_BASE_URL };

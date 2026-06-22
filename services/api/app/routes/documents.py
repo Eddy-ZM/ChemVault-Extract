@@ -8,9 +8,16 @@ from app.config import get_settings
 from app.constants import DocumentStatus, JobStatus
 from app.database import get_db
 from app.dependencies import get_queue, get_storage
-from app.models import Document, ExtractionJob, Project, User
+from app.models import Document, DocumentBlock, DocumentChunk, DocumentPage, ExtractionJob, Project, User
 from app.queue import JobQueue
-from app.schemas import DocumentWithLatestJob, ExtractionJobRead, UploadDocumentResponse
+from app.schemas import (
+    DocumentBlockRead,
+    DocumentChunkRead,
+    DocumentPageRead,
+    DocumentWithLatestJob,
+    ExtractionJobRead,
+    UploadDocumentResponse,
+)
 from app.storage import S3Storage, sanitize_filename, validate_upload_file
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -65,6 +72,38 @@ def get_document(document_id: str, db: Session = Depends(get_db)) -> DocumentWit
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
     return _document_response(db, document)
+
+
+@router.get("/{document_id}/pages", response_model=list[DocumentPageRead])
+def get_document_pages(document_id: str, db: Session = Depends(get_db)) -> list[DocumentPageRead]:
+    if db.get(Document, document_id) is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    pages = db.scalars(
+        select(DocumentPage).where(DocumentPage.document_id == document_id).order_by(DocumentPage.page_number)
+    ).all()
+    return [DocumentPageRead.model_validate(page) for page in pages]
+
+
+@router.get("/{document_id}/blocks", response_model=list[DocumentBlockRead])
+def get_document_blocks(document_id: str, db: Session = Depends(get_db)) -> list[DocumentBlockRead]:
+    if db.get(Document, document_id) is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    blocks = db.scalars(
+        select(DocumentBlock)
+        .where(DocumentBlock.document_id == document_id)
+        .order_by(DocumentBlock.page_number.is_(None), DocumentBlock.page_number, DocumentBlock.created_at, DocumentBlock.id)
+    ).all()
+    return [DocumentBlockRead.model_validate(block) for block in blocks]
+
+
+@router.get("/{document_id}/chunks", response_model=list[DocumentChunkRead])
+def get_document_chunks(document_id: str, db: Session = Depends(get_db)) -> list[DocumentChunkRead]:
+    if db.get(Document, document_id) is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    chunks = db.scalars(
+        select(DocumentChunk).where(DocumentChunk.document_id == document_id).order_by(DocumentChunk.chunk_index)
+    ).all()
+    return [DocumentChunkRead.model_validate(chunk) for chunk in chunks]
 
 
 @router.post("/upload", response_model=UploadDocumentResponse, status_code=status.HTTP_201_CREATED)
