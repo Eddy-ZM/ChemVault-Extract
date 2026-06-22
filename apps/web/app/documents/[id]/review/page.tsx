@@ -1,6 +1,7 @@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDocument } from "@/lib/api";
+
+import { ReviewItemsClient } from "./review-items-client";
 
 export default async function DocumentReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -14,15 +15,7 @@ export default async function DocumentReviewPage({ params }: { params: Promise<{
           <h1 className="text-2xl font-semibold tracking-normal">Extraction review</h1>
           <p className="text-sm text-muted-foreground">{document.originalFilename}</p>
         </div>
-        <Card>
-          <CardHeader>
-            <CardTitle>Review workspace</CardTitle>
-            <CardDescription>Document ID: {document.id}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Extraction review will appear here.</p>
-          </CardContent>
-        </Card>
+        <ReviewItemsClient documentId={document.id} />
       </div>
     );
   } catch (err) {

@@ -10,6 +10,7 @@ class ApiModel(BaseModel):
 class ExtractionJobRead(ApiModel):
     id: str
     document_id: str = Field(serialization_alias="documentId")
+    job_type: str = Field(serialization_alias="jobType")
     status: str
     error: str | None = None
     created_at: datetime = Field(serialization_alias="createdAt")
@@ -73,3 +74,72 @@ class DocumentChunkRead(ApiModel):
     text: str
     token_count: int | None = Field(default=None, serialization_alias="tokenCount")
     created_at: datetime = Field(serialization_alias="createdAt")
+
+
+class ChemicalEntityRead(ApiModel):
+    id: str
+    document_id: str = Field(serialization_alias="documentId")
+    name: str
+    entity_type: str | None = Field(default=None, serialization_alias="entityType")
+    normalized_name: str | None = Field(default=None, serialization_alias="normalizedName")
+    identifiers: dict | None = None
+    evidence: dict
+    confidence: float | None = None
+    created_at: datetime = Field(serialization_alias="createdAt")
+    updated_at: datetime = Field(serialization_alias="updatedAt")
+
+
+class ReactionRecordRead(ApiModel):
+    id: str
+    document_id: str = Field(serialization_alias="documentId")
+    reaction_name: str | None = Field(default=None, serialization_alias="reactionName")
+    reactants: dict | None = None
+    products: dict | None = None
+    conditions: dict | None = None
+    yield_text: str | None = Field(default=None, serialization_alias="yieldText")
+    evidence: dict
+    confidence: float | None = None
+    created_at: datetime = Field(serialization_alias="createdAt")
+    updated_at: datetime = Field(serialization_alias="updatedAt")
+
+
+class MeasurementRecordRead(ApiModel):
+    id: str
+    document_id: str = Field(serialization_alias="documentId")
+    measurement_type: str = Field(serialization_alias="measurementType")
+    subject: str | None = None
+    value_text: str | None = Field(default=None, serialization_alias="valueText")
+    value_numeric: float | None = Field(default=None, serialization_alias="valueNumeric")
+    unit: str | None = None
+    conditions: dict | None = None
+    evidence: dict
+    confidence: float | None = None
+    created_at: datetime = Field(serialization_alias="createdAt")
+    updated_at: datetime = Field(serialization_alias="updatedAt")
+
+
+class ReviewItemRead(ApiModel):
+    id: str
+    document_id: str = Field(serialization_alias="documentId")
+    record_type: str = Field(serialization_alias="recordType")
+    record_id: str | None = Field(default=None, serialization_alias="recordId")
+    status: str
+    issue_type: str | None = Field(default=None, serialization_alias="issueType")
+    message: str | None = None
+    extracted_data: dict | None = Field(default=None, serialization_alias="extractedData")
+    evidence: dict | None = None
+    confidence: float | None = None
+    created_at: datetime = Field(serialization_alias="createdAt")
+    updated_at: datetime = Field(serialization_alias="updatedAt")
+
+
+class ReviewItemUpdate(ApiModel):
+    status: str | None = None
+    extractedData: dict | None = None
+
+
+class DocumentExtractionsRead(ApiModel):
+    chemical_entities: list[ChemicalEntityRead] = Field(serialization_alias="chemicalEntities")
+    reactions: list[ReactionRecordRead]
+    measurements: list[MeasurementRecordRead]
+    review_items: list[ReviewItemRead] = Field(serialization_alias="reviewItems")

@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.chunking import build_chunks
 from app.config import get_settings
-from app.constants import DocumentStatus, JobStatus
+from app.constants import DocumentStatus, JobStatus, JobType
 from app.database import SessionLocal
+from app.extractors import run_structured_extraction
 from app.models import DocumentBlock, DocumentChunk, DocumentPage, ExtractionJob, ExtractionRun
 from app.parsers.interface import ParsedBlock, ParsedDocument
 from app.parsers.registry import parse_document
@@ -102,6 +103,52 @@ def _persist_parsed_document(db: Session, job: ExtractionJob, parsed: ParsedDocu
     db.refresh(job)
 
 
+def _parse_job_document(db: Session, job: ExtractionJob, storage_client: S3Storage, max_chunk_words: int) -> None:
+    suffix = Path(job.document.filename).suffix or f".{job.document.file_type}"
+    with tempfile.NamedTemporaryFile(suffix=suffix) as temp_file:
+        storage_client.download_file(job.document.storage_key, temp_file.name)
+        parsed = parse_document(temp_file.name, job.document.mime_type)
+    if parsed.errors:
+        raise RuntimeError("; ".join(parsed.errors))
+    _persist_parsed_document(db, job, parsed, max_chunk_words)
+
+
+def _document_has_chunks(db: Session, document_id: str) -> bool:
+    return db.query(DocumentChunk).filter(DocumentChunk.document_id == document_id).first() is not None
+
+
+def _process_parse_job(
+    db: Session,
+    job: ExtractionJob,
+    storage_client: S3Storage,
+    step_delay_seconds: float,
+    max_chunk_words: int,
+) -> None:
+    _record_status(db, job, JobStatus.PARSING)
+    _parse_job_document(db, job, storage_client, max_chunk_words)
+    time.sleep(step_delay_seconds)
+    _record_status(db, job, JobStatus.REVIEW_READY)
+
+
+def _process_ai_extraction_job(
+    db: Session,
+    job: ExtractionJob,
+    storage_client: S3Storage,
+    step_delay_seconds: float,
+    max_chunk_words: int,
+) -> None:
+    settings = get_settings()
+    if not _document_has_chunks(db, job.document_id):
+        _record_status(db, job, JobStatus.PARSING)
+        _parse_job_document(db, job, storage_client, max_chunk_words)
+
+    _record_status(db, job, JobStatus.EXTRACTING)
+    run_structured_extraction(db, job, settings)
+    _record_status(db, job, JobStatus.VALIDATING)
+    time.sleep(step_delay_seconds)
+    _record_status(db, job, JobStatus.REVIEW_READY)
+
+
 def process_job(job_id: str, storage: S3Storage | None = None, step_delay_seconds: float | None = None) -> None:
     settings = get_settings()
     storage_client = storage or S3Storage(settings)
@@ -114,16 +161,10 @@ def process_job(job_id: str, storage: S3Storage | None = None, step_delay_second
 
         try:
             job.error = None
-            _record_status(db, job, JobStatus.PARSING)
-            suffix = Path(job.document.filename).suffix or f".{job.document.file_type}"
-            with tempfile.NamedTemporaryFile(suffix=suffix) as temp_file:
-                storage_client.download_file(job.document.storage_key, temp_file.name)
-                parsed = parse_document(temp_file.name, job.document.mime_type)
-            if parsed.errors:
-                raise RuntimeError("; ".join(parsed.errors))
-            _persist_parsed_document(db, job, parsed, settings.max_chunk_tokens)
-            time.sleep(delay)
-            _record_status(db, job, JobStatus.REVIEW_READY)
+            if (job.job_type or JobType.PARSE.value) == JobType.AI_EXTRACTION.value:
+                _process_ai_extraction_job(db, job, storage_client, delay, settings.max_chunk_tokens)
+            else:
+                _process_parse_job(db, job, storage_client, delay, settings.max_chunk_tokens)
             logger.info("Job %s reached %s", job.id, JobStatus.REVIEW_READY.value)
         except Exception as exc:  # noqa: BLE001
             db.rollback()

@@ -6,6 +6,7 @@ from datetime import datetime
 from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.constants import JobType, ReviewStatus
 from app.database import Base
 
 
@@ -80,6 +81,7 @@ class ExtractionJob(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), index=True)
+    job_type: Mapped[str] = mapped_column(String(64), default=JobType.PARSE.value, index=True)
     status: Mapped[str] = mapped_column(String(64), index=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -98,8 +100,14 @@ class ExtractionRun(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     job_id: Mapped[str] = mapped_column(ForeignKey("extraction_jobs.id"), index=True)
+    extractor_type: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    model_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    input_chunk_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    raw_output: Mapped[dict | list | str | None] = mapped_column(JSON, nullable=True)
+    parsed_output: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(64), index=True)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     job: Mapped[ExtractionJob] = relationship(back_populates="runs")
@@ -227,10 +235,12 @@ class ReviewItem(Base):
     document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), index=True)
     record_type: Mapped[str] = mapped_column(String(128), index=True)
     record_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
-    status: Mapped[str] = mapped_column(String(64), default="open", index=True)
+    status: Mapped[str] = mapped_column(String(64), default=ReviewStatus.PENDING.value, index=True)
     issue_type: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    extracted_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     evidence: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

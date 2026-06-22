@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Document, DocumentBlock, DocumentChunk, DocumentPage } from "@chemvault-extract/schemas";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Sparkles } from "lucide-react";
 
 import { StatusBadge } from "@/components/status-badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -23,6 +23,7 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
   const [tables, setTables] = useState<DocumentBlock[]>([]);
   const [chunks, setChunks] = useState<DocumentChunk[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [startingExtraction, setStartingExtraction] = useState(false);
   const latestJob = document.latestJob;
   const currentIndex = useMemo(
     () => visiblePipeline.findIndex((status) => status === latestJob?.status),
@@ -69,6 +70,24 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
     return () => window.clearInterval(interval);
   }, [latestJob?.status, refresh]);
 
+  const startAiExtraction = useCallback(async () => {
+    setStartingExtraction(true);
+    try {
+      const response = await fetch(`/api/documents/${document.id}/extract-ai`, { method: "POST" });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.detail ?? "Unable to start extraction");
+      }
+      setDocument((current) => ({ ...current, latestJob: body }));
+      setError(null);
+      void refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to start extraction");
+    } finally {
+      setStartingExtraction(false);
+    }
+  }, [document.id, refresh]);
+
   return (
     <div className="flex flex-col gap-4">
       {error ? (
@@ -97,7 +116,13 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
               chunkCount={chunks.length}
               sections={detectedSections}
             />
-            <JobStatusCard latestJob={latestJob} currentIndex={currentIndex} onRefresh={refresh} />
+            <JobStatusCard
+              latestJob={latestJob}
+              currentIndex={currentIndex}
+              onRefresh={refresh}
+              onStartAiExtraction={startAiExtraction}
+              startingExtraction={startingExtraction}
+            />
           </div>
         </TabsContent>
 
@@ -179,11 +204,16 @@ function JobStatusCard({
   latestJob,
   currentIndex,
   onRefresh,
+  onStartAiExtraction,
+  startingExtraction,
 }: {
   latestJob: Document["latestJob"];
   currentIndex: number;
   onRefresh: () => void;
+  onStartAiExtraction: () => void;
+  startingExtraction: boolean;
 }) {
+  const activeJob = latestJob && !["review_ready", "failed"].includes(latestJob.status);
   return (
     <Card>
       <CardHeader>
@@ -224,6 +254,10 @@ function JobStatusCard({
           <p className="text-sm text-muted-foreground">No job has been created for this document.</p>
         )}
         <div className="flex gap-2">
+          <Button variant="default" size="sm" onClick={onStartAiExtraction} disabled={Boolean(activeJob) || startingExtraction}>
+            <Sparkles data-icon="inline-start" />
+            Run AI Extraction
+          </Button>
           <Button asChild variant="outline" size="sm">
             <Link href="/documents">Documents</Link>
           </Button>

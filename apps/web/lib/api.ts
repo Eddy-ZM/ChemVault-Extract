@@ -1,4 +1,12 @@
-import type { Document, DocumentBlock, DocumentChunk, DocumentPage, ExtractionJob } from "@chemvault-extract/schemas";
+import type {
+  Document,
+  DocumentBlock,
+  DocumentChunk,
+  DocumentExtractions,
+  DocumentPage,
+  ExtractionJob,
+  ReviewItem,
+} from "@chemvault-extract/schemas";
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000";
 
@@ -42,6 +50,29 @@ export function getDocumentTables(id: string): Promise<DocumentBlock[]> {
 
 export function getDocumentChunks(id: string): Promise<DocumentChunk[]> {
   return apiFetch<DocumentChunk[]>(`/documents/${id}/chunks`);
+}
+
+export function runAiExtraction(id: string): Promise<ExtractionJob> {
+  return apiFetch<ExtractionJob>(`/documents/${id}/extract-ai`, { method: "POST" });
+}
+
+export function getDocumentExtractions(id: string): Promise<DocumentExtractions> {
+  return apiFetch<DocumentExtractions>(`/documents/${id}/extractions`);
+}
+
+export function getReviewItems(id: string): Promise<ReviewItem[]> {
+  return apiFetch<ReviewItem[]>(`/documents/${id}/review-items`);
+}
+
+export function updateReviewItem(
+  id: string,
+  payload: { status?: string; extractedData?: Record<string, unknown> },
+): Promise<ReviewItem> {
+  return apiFetch<ReviewItem>(`/review-items/${id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }
 
 export { API_BASE_URL };

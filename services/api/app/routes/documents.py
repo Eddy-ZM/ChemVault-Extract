@@ -5,17 +5,31 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.constants import DocumentStatus, JobStatus
+from app.constants import DocumentStatus, JobStatus, JobType
 from app.database import get_db
 from app.dependencies import get_queue, get_storage
-from app.models import Document, DocumentBlock, DocumentChunk, DocumentPage, ExtractionJob, Project, User
+from app.models import (
+    ChemicalEntity,
+    Document,
+    DocumentBlock,
+    DocumentChunk,
+    DocumentPage,
+    ExtractionJob,
+    MeasurementRecord,
+    Project,
+    ReactionRecord,
+    ReviewItem,
+    User,
+)
 from app.queue import JobQueue
 from app.schemas import (
     DocumentBlockRead,
     DocumentChunkRead,
+    DocumentExtractionsRead,
     DocumentPageRead,
     DocumentWithLatestJob,
     ExtractionJobRead,
+    ReviewItemRead,
     UploadDocumentResponse,
 )
 from app.storage import S3Storage, sanitize_filename, validate_upload_file
@@ -154,7 +168,7 @@ async def upload_document(
         storage_key=storage_key,
         status=DocumentStatus.UPLOADED.value,
     )
-    job = ExtractionJob(document_id=document.id, status=JobStatus.QUEUED.value)
+    job = ExtractionJob(document_id=document.id, job_type=JobType.PARSE.value, status=JobStatus.QUEUED.value)
     db.add(document)
     db.add(job)
     db.commit()
@@ -179,9 +193,67 @@ def create_extraction_job(
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    job = ExtractionJob(document_id=document.id, status=JobStatus.QUEUED.value)
+    job = ExtractionJob(document_id=document.id, job_type=JobType.PARSE.value, status=JobStatus.QUEUED.value)
     db.add(job)
     db.commit()
     db.refresh(job)
     queue.push_job(job.id)
     return ExtractionJobRead.model_validate(job)
+
+
+@router.post("/{document_id}/extract-ai", response_model=ExtractionJobRead, status_code=status.HTTP_201_CREATED)
+def create_ai_extraction_job(
+    document_id: str,
+    db: Session = Depends(get_db),
+    queue: JobQueue = Depends(get_queue),
+) -> ExtractionJobRead:
+    document = db.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    job = ExtractionJob(document_id=document.id, job_type=JobType.AI_EXTRACTION.value, status=JobStatus.QUEUED.value)
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    queue.push_job(job.id)
+    return ExtractionJobRead.model_validate(job)
+
+
+@router.get("/{document_id}/extractions", response_model=DocumentExtractionsRead)
+def get_document_extractions(document_id: str, db: Session = Depends(get_db)) -> DocumentExtractionsRead:
+    if db.get(Document, document_id) is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    chemical_entities = db.scalars(
+        select(ChemicalEntity).where(ChemicalEntity.document_id == document_id).order_by(ChemicalEntity.created_at)
+    ).all()
+    reactions = db.scalars(
+        select(ReactionRecord).where(ReactionRecord.document_id == document_id).order_by(ReactionRecord.created_at)
+    ).all()
+    measurements = db.scalars(
+        select(MeasurementRecord)
+        .where(MeasurementRecord.document_id == document_id)
+        .order_by(MeasurementRecord.created_at)
+    ).all()
+    review_items = db.scalars(
+        select(ReviewItem).where(ReviewItem.document_id == document_id).order_by(ReviewItem.created_at)
+    ).all()
+
+    return DocumentExtractionsRead.model_validate(
+        {
+            "chemical_entities": chemical_entities,
+            "reactions": reactions,
+            "measurements": measurements,
+            "review_items": review_items,
+        }
+    )
+
+
+@router.get("/{document_id}/review-items", response_model=list[ReviewItemRead])
+def get_document_review_items(document_id: str, db: Session = Depends(get_db)) -> list[ReviewItemRead]:
+    if db.get(Document, document_id) is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    review_items = db.scalars(
+        select(ReviewItem).where(ReviewItem.document_id == document_id).order_by(ReviewItem.created_at, ReviewItem.id)
+    ).all()
+    return [ReviewItemRead.model_validate(item) for item in review_items]

@@ -11,6 +11,7 @@ export type DocumentStatus = "uploaded" | "parsed" | "review_ready" | "failed";
 export interface ExtractionJob {
   id: string;
   documentId: string;
+  jobType: "parse" | "ai_extraction";
   status: JobStatus;
   error: string | null;
   createdAt: string;
@@ -120,4 +121,29 @@ export interface MeasurementRecord {
   confidence: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type ReviewStatus = "pending" | "needs_review" | "approved" | "rejected";
+export type ReviewRecordType = "chemical_entity" | "reaction" | "measurement" | "metadata";
+
+export interface ReviewItem {
+  id: string;
+  documentId: string;
+  recordType: ReviewRecordType | string;
+  recordId: string | null;
+  status: ReviewStatus | string;
+  issueType: string | null;
+  message: string | null;
+  extractedData: Record<string, unknown> | null;
+  evidence: Evidence | null;
+  confidence: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentExtractions {
+  chemicalEntities: ChemicalEntity[];
+  reactions: ReactionRecord[];
+  measurements: MeasurementRecord[];
+  reviewItems: ReviewItem[];
 }

@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     default_project_name: str = "Default Project"
     worker_step_delay_seconds: float = 1.0
     max_chunk_tokens: int = 900
+    ai_extraction_provider: str = "none"
+    ai_model: str = "offline-no-provider"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
