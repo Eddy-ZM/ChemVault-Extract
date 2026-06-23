@@ -64,7 +64,7 @@ export default function UseCasesPage() {
             <Card key={item.title} className="shadow-none">
               <CardHeader>
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex size-11 items-center justify-center rounded-md bg-amber-100 text-slate-950">
+                  <div className="flex size-11 items-center justify-center rounded-md bg-blue-50 text-blue-700 ring-1 ring-blue-100">
                     <Icon className="size-5" />
                   </div>
                   <Badge>{item.plan}</Badge>

@@ -44,7 +44,7 @@ export function DocsShell({ page }: { page: DocsPage }) {
 
       <article className="min-w-0">
         <div className="border-b pb-8">
-          <p className="text-sm font-medium text-amber-600">ChemVault Extract docs</p>
+          <p className="text-sm font-medium text-blue-600">ChemVault Extract docs</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-normal text-slate-950">{page.title}</h1>
           <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">{page.description}</p>
         </div>

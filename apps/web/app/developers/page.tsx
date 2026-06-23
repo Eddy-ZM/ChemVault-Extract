@@ -19,7 +19,7 @@ export default function DevelopersPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TerminalSquare className="size-5 text-amber-500" />
+              <TerminalSquare className="size-5 text-blue-600" />
               Base URL
             </CardTitle>
             <CardDescription>Use API keys for server-side integrations.</CardDescription>
@@ -31,7 +31,7 @@ export default function DevelopersPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <KeyRound className="size-5 text-amber-500" />
+              <KeyRound className="size-5 text-blue-600" />
               API keys
             </CardTitle>
             <CardDescription>Create scoped keys and revoke them any time.</CardDescription>
@@ -45,7 +45,7 @@ export default function DevelopersPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BookOpen className="size-5 text-amber-500" />
+              <BookOpen className="size-5 text-blue-600" />
               API docs
             </CardTitle>
             <CardDescription>Endpoint reference with curl and Python examples.</CardDescription>

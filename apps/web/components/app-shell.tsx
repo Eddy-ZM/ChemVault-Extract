@@ -9,7 +9,6 @@ import {
   FileCheck2,
   FileUp,
   Files,
-  FlaskConical,
   FolderPlus,
   LayoutDashboard,
   Layers3,
@@ -69,13 +68,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<UserRecord | null>(null);
+  const publicPath = publicRoutes.has(pathname) || pathname.startsWith("/docs/");
+  const protectedPath = protectedPrefixes.some((prefix) => pathname.startsWith(prefix));
 
   useEffect(() => {
+    if (publicPath) {
+      setUser(null);
+      return;
+    }
+
     let cancelled = false;
     fetch("/api/auth/me", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) {
-          if (response.status === 401 && protectedPrefixes.some((prefix) => pathname.startsWith(prefix))) {
+          if ((response.status === 401 || response.status === 500) && protectedPath) {
             router.push(`/login?next=${encodeURIComponent(pathname)}`);
           }
           return null;
@@ -91,7 +97,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [pathname, router]);
+  }, [pathname, protectedPath, publicPath, router]);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
@@ -100,8 +106,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     router.push("/login");
     router.refresh();
   }
-
-  const publicPath = publicRoutes.has(pathname) || pathname.startsWith("/docs/");
 
   if (publicPath) {
     return (
@@ -116,14 +120,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <div className="flex min-h-screen">
-        <aside className="hidden w-64 shrink-0 border-r bg-card lg:block">
-          <div className="flex h-16 items-center gap-3 border-b px-5">
-            <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <FlaskConical className="size-4" />
+        <aside className="hidden w-64 shrink-0 border-r border-slate-200/80 bg-white/90 backdrop-blur lg:block">
+          <div className="flex h-16 items-center gap-3 border-b border-slate-200/80 px-5">
+            <div className="flex size-9 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-white p-1 shadow-sm">
+              <img src="/assets/chemvault-logo-mark.png" alt="" className="size-full object-contain" />
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-semibold">ChemVault Extract</span>
-              <span className="text-xs text-muted-foreground">MVP workspace</span>
+              <span className="text-xs text-muted-foreground">research workspace</span>
             </div>
           </div>
           <nav className="flex flex-col gap-1 p-3">
@@ -136,8 +140,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex h-9 items-center gap-3 rounded-md px-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
-                    active && "bg-accent text-accent-foreground",
+                    "flex h-9 items-center gap-3 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+                    active && "bg-accent text-accent-foreground shadow-sm ring-1 ring-blue-100",
                   )}
                 >
                   <Icon className="size-4" />
@@ -148,14 +152,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-16 items-center justify-between border-b bg-card px-4 lg:px-8">
+          <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur lg:px-8">
             <Link href="/dashboard" className="flex items-center gap-3 lg:hidden">
-              <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <FlaskConical className="size-4" />
+              <div className="flex size-9 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-white p-1 shadow-sm">
+                <img src="/assets/chemvault-logo-mark.png" alt="" className="size-full object-contain" />
               </div>
               <span className="text-sm font-semibold">ChemVault Extract</span>
             </Link>
-            <div className="hidden text-sm text-muted-foreground lg:block">Scientific document ingestion</div>
+            <div className="hidden text-sm font-semibold text-muted-foreground lg:block">
+              Scientific document ingestion
+            </div>
             <div className="flex items-center gap-2">
               {user ? (
                 <>

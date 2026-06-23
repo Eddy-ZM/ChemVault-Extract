@@ -77,7 +77,7 @@ export default function DemoPage() {
               <DemoField label="Raw temperature" value="rt" />
               <DemoField label="Normalized temperature" value="room temperature" />
             </div>
-            <blockquote className="rounded-md border-l-4 border-amber-400 bg-amber-50 p-4 text-sm leading-6">
+            <blockquote className="rounded-md border-l-4 border-blue-400 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
               “The product was obtained as a white solid in 82% yield.”
             </blockquote>
             <div className="flex flex-wrap gap-2">

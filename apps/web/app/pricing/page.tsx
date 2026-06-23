@@ -103,7 +103,7 @@ export default function PricingPage() {
               <div className="grid flex-1 gap-2 text-sm">
                 {item.limits.map((limit) => (
                   <div key={limit} className="flex items-start gap-2">
-                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-amber-500" />
+                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-blue-600" />
                     <span>{limit}</span>
                   </div>
                 ))}

@@ -58,7 +58,7 @@ export function FeatureCard({
   return (
     <Card className="h-full border-slate-200 shadow-none">
       <CardHeader>
-        <div className="flex size-10 items-center justify-center rounded-md bg-amber-100 text-slate-950">
+        <div className="flex size-10 items-center justify-center rounded-md bg-blue-50 text-blue-700 ring-1 ring-blue-100">
           <Icon className="size-5" />
         </div>
         <CardTitle>{title}</CardTitle>
@@ -81,7 +81,7 @@ export function EvidenceCard({
   return (
     <div className="rounded-md border bg-white p-3">
       <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={cn("mt-1 text-sm font-medium", muted && "text-muted-foreground")}>{value}</div>
+      <div className={cn("mt-1 text-sm font-medium text-slate-950", muted && "text-slate-500")}>{value}</div>
     </div>
   );
 }
@@ -97,7 +97,7 @@ export function WorkflowStep({
 }) {
   return (
     <div className="relative rounded-lg border bg-white p-5 shadow-sm">
-      <div className="mb-4 flex size-9 items-center justify-center rounded-md bg-slate-950 text-sm font-semibold text-white">
+      <div className="mb-4 flex size-9 items-center justify-center rounded-md bg-blue-600 text-sm font-semibold text-white shadow-sm">
         {index}
       </div>
       <h3 className="text-base font-semibold">{title}</h3>
@@ -135,7 +135,7 @@ export function EmptyState({
 }) {
   return (
     <div className="flex min-h-44 flex-col items-center justify-center gap-3 rounded-lg border border-dashed bg-white p-8 text-center">
-      <div className="flex size-11 items-center justify-center rounded-md bg-amber-100 text-slate-950">
+      <div className="flex size-11 items-center justify-center rounded-md bg-blue-50 text-blue-700 ring-1 ring-blue-100">
         <Icon className="size-5" />
       </div>
       <div>

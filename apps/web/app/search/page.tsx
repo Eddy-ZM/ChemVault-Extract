@@ -99,7 +99,7 @@ export default async function SearchPage({
                       <Badge variant="outline">{chunk.section ?? "Unsectioned"}</Badge>
                       <span>pages {chunk.pageStart ?? "?"}-{chunk.pageEnd ?? "?"}</span>
                     </div>
-                    <p className="mt-3 line-clamp-4 border-l-4 border-amber-300 pl-3 text-sm leading-6 text-muted-foreground">
+                    <p className="mt-3 line-clamp-4 border-l-4 border-blue-300 pl-3 text-sm leading-6 text-muted-foreground">
                       {chunk.text}
                     </p>
                   </Link>

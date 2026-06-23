@@ -106,7 +106,7 @@ function FormatCard({ icon: Icon, title, description }: { icon: LucideIcon; titl
   return (
     <Card className="shadow-none">
       <CardHeader>
-        <div className="flex size-10 items-center justify-center rounded-md bg-amber-100 text-slate-950">
+        <div className="flex size-10 items-center justify-center rounded-md bg-blue-50 text-blue-700 ring-1 ring-blue-100">
           <Icon className="size-5" />
         </div>
         <CardTitle>{title}</CardTitle>

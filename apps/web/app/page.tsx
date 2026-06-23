@@ -85,7 +85,7 @@ export default function HomePage() {
             {painPoints.map((point) => (
               <Card key={point} className="shadow-none">
                 <CardContent className="flex gap-3 p-5">
-                  <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-amber-500" />
+                  <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-blue-600" />
                   <p className="text-sm leading-6">{point}</p>
                 </CardContent>
               </Card>
@@ -103,7 +103,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="bg-slate-950 text-white">
+      <section className="bg-[#07111f] text-white">
         <div className="marketing-container grid gap-10 py-20 lg:grid-cols-[0.8fr_1.2fr]">
           <div>
             <SectionHeader
@@ -138,7 +138,7 @@ export default function HomePage() {
       </section>
 
       <section className="marketing-container pb-20">
-        <div className="rounded-2xl border bg-amber-50 p-8 md:p-12">
+        <div className="rounded-lg border border-blue-100 bg-blue-50 p-8 md:p-12">
           <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <h2 className="text-3xl font-semibold tracking-normal text-balance">Start building a reliable research database.</h2>
