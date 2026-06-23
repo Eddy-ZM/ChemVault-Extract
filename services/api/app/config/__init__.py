@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     jwt_expires_in_minutes: int = 10080
     app_encryption_key: str | None = None
     allow_user_openai_keys: bool = True
+    turnstile_secret_key: str | None = None
+    cloudflare_turnstile_secret_key: str | None = None
+    turnstile_required: bool = False
+    turnstile_timeout_seconds: float = 5.0
 
     ai_provider: str = "openai"
     openai_api_key: str | None = None

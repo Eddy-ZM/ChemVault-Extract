@@ -379,6 +379,8 @@ No record is auto-approved after normalization. Review items remain `pending`/`n
 
 ChemVault Extract requires a JWT for document, extraction, usage, settings, export, and review APIs. Anonymous users cannot upload documents or run AI extraction.
 
+The web app stores the returned JWT and a masked current-user profile in browser storage for client navigation state. The backend remains the source of truth for every protected request.
+
 Register and login:
 
 ```bash
@@ -399,6 +401,16 @@ curl http://localhost:8000/documents \
 ```
 
 Every project belongs to a user. Documents, jobs, review items, extracted records, usage records, and exports are only accessible through the owning user's projects. Accessing another user's document ID returns `403`.
+
+Registration can be protected by Cloudflare Turnstile. Configure the browser-visible site key in the frontend and the secret key in the FastAPI environment:
+
+```bash
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x...
+TURNSTILE_SECRET_KEY=0x...
+TURNSTILE_REQUIRED=true
+```
+
+When `TURNSTILE_REQUIRED=true`, `/auth/register` rejects requests that do not include a valid Turnstile response token. Local development can leave `TURNSTILE_REQUIRED=false`.
 
 Monthly AI limits are enforced before creating an AI extraction job:
 
@@ -786,6 +798,7 @@ For non-Docker frontend development, set `API_BASE_URL=http://localhost:8000` in
 - `NEXT_PUBLIC_APP_URL`: Browser-visible app URL.
 - `NEXT_PUBLIC_API_BASE_URL`: Browser-visible API URL.
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`: Browser-safe Stripe publishable key.
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY`: Browser-safe Cloudflare Turnstile site key for the registration form.
 - `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE_ID`: Cloudflare deployment/configuration values.
 - `CLOUDFLARE_QUEUE_NAME`, `CLOUDFLARE_QUEUE_ID`: Optional Cloudflare Queue configuration.
 - `INTERNAL_WORKER_TOKEN`: Shared secret used by Cloudflare internal workers to call protected backend endpoints.
@@ -795,6 +808,9 @@ For non-Docker frontend development, set `API_BASE_URL=http://localhost:8000` in
 - `JWT_EXPIRES_IN_MINUTES`: JWT lifetime in minutes. Defaults to `10080`.
 - `APP_ENCRYPTION_KEY`: Required to save or read user-provided OpenAI API keys.
 - `ALLOW_USER_OPENAI_KEYS`: Enables encrypted user key storage. Defaults to `true`.
+- `TURNSTILE_SECRET_KEY`: Server-side Cloudflare Turnstile secret key used by `/auth/register`.
+- `TURNSTILE_REQUIRED`: Set to `true` in production to require Turnstile verification for registration.
+- `TURNSTILE_TIMEOUT_SECONDS`: Timeout for Turnstile server-side validation. Defaults to `5.0`.
 - `AI_PROVIDER`: AI provider. Use `openai` for the MVP.
 - `OPENAI_API_KEY`: Platform OpenAI key used when a user does not use their own key.
 - `OPENAI_MODEL`: Default extraction model. Defaults to `gpt-5.4`.
@@ -993,7 +1009,7 @@ Do not commit real secrets. Use Wrangler:
 wrangler secret put INTERNAL_WORKER_TOKEN --config workers/webhook-delivery/wrangler.jsonc
 ```
 
-For the frontend Worker, configure runtime/build variables in Cloudflare or GitHub Actions. Never expose `OPENAI_API_KEY`, `STRIPE_SECRET_KEY`, `R2_SECRET_ACCESS_KEY`, `APP_ENCRYPTION_KEY`, or `JWT_SECRET` to the browser.
+For the frontend Worker, configure runtime/build variables in Cloudflare or GitHub Actions. `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is safe for the browser. Never expose `TURNSTILE_SECRET_KEY`, `OPENAI_API_KEY`, `STRIPE_SECRET_KEY`, `R2_SECRET_ACCESS_KEY`, `APP_ENCRYPTION_KEY`, or `JWT_SECRET` to the browser.
 
 ### Optional Cloudflare Access
 

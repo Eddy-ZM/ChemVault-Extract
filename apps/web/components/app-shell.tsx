@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import type { User as UserRecord } from "@chemvault-extract/schemas";
 
+import { clearAuthSession, readStoredUser, storeUser } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PublicFooter, PublicNav } from "@/components/marketing";
@@ -72,8 +73,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const protectedPath = protectedPrefixes.some((prefix) => pathname.startsWith(prefix));
 
   useEffect(() => {
+    const storedUser = readStoredUser();
+    if (storedUser) {
+      setUser(storedUser);
+    }
     if (publicPath) {
-      setUser(null);
       return;
     }
 
@@ -81,6 +85,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     fetch("/api/auth/me", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) {
+          if (response.status === 401) {
+            clearAuthSession();
+            if (!cancelled) setUser(null);
+          }
           if ((response.status === 401 || response.status === 500) && protectedPath) {
             router.push(`/login?next=${encodeURIComponent(pathname)}`);
           }
@@ -89,7 +97,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         return (await response.json()) as UserRecord;
       })
       .then((body) => {
-        if (!cancelled) setUser(body);
+        if (!cancelled && body) {
+          storeUser(body);
+          setUser(body);
+        }
       })
       .catch(() => {
         if (!cancelled) setUser(null);
@@ -101,7 +112,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
-    window.localStorage.removeItem("chemvault_token");
+    clearAuthSession();
     setUser(null);
     router.push("/login");
     router.refresh();
@@ -126,7 +137,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <img src="/assets/chemvault-logo-mark.png" alt="" className="size-full object-contain" />
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-semibold">ChemVault Extract</span>
+              <span className="text-sm font-medium">ChemVault Extract</span>
               <span className="text-xs text-muted-foreground">research workspace</span>
             </div>
           </div>
@@ -157,9 +168,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="flex size-9 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-white p-1 shadow-sm">
                 <img src="/assets/chemvault-logo-mark.png" alt="" className="size-full object-contain" />
               </div>
-              <span className="text-sm font-semibold">ChemVault Extract</span>
+              <span className="text-sm font-medium">ChemVault Extract</span>
             </Link>
-            <div className="hidden text-sm font-semibold text-muted-foreground lg:block">
+            <div className="hidden text-sm font-medium text-muted-foreground lg:block">
               Scientific document ingestion
             </div>
             <div className="flex items-center gap-2">

@@ -57,6 +57,13 @@ class AuthRegisterRequest(ApiModel):
     email: str
     password: str = Field(min_length=8)
     name: str | None = None
+    turnstile_token: str | None = None
+    turnstileToken: str | None = None
+    cfTurnstileResponse: str | None = None
+
+    @property
+    def resolved_turnstile_token(self) -> str | None:
+        return self.turnstile_token or self.turnstileToken or self.cfTurnstileResponse
 
 
 class AuthLoginRequest(ApiModel):

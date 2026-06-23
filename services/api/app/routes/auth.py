@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -13,14 +13,16 @@ from app.database import get_db
 from app.models import Project, Subscription, User
 from app.schemas import AuthLoginRequest, AuthRegisterRequest, AuthTokenResponse, UserRead
 from app.security import create_access_token, get_current_user, hash_password, verify_password
+from app.turnstile import verify_turnstile_response
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=AuthTokenResponse, status_code=status.HTTP_201_CREATED)
-def register(payload: AuthRegisterRequest, db: Session = Depends(get_db)) -> AuthTokenResponse:
+def register(payload: AuthRegisterRequest, request: Request, db: Session = Depends(get_db)) -> AuthTokenResponse:
     settings = get_settings()
     _assert_jwt_configured(settings)
+    verify_turnstile_response(payload.resolved_turnstile_token, settings=settings, request=request)
     email = payload.email.strip().lower()
     if db.scalars(select(User).where(User.email == email)).first() is not None:
         raise HTTPException(status_code=409, detail="Email is already registered.")

@@ -7,7 +7,7 @@ import hashlib
 from sqlalchemy import inspect
 from sqlalchemy import select
 
-from app.database import SessionLocal, engine
+from app.database import Base, SessionLocal, engine
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -56,6 +56,63 @@ def test_registered_password_is_hashed(api_client):
     assert user is not None
     assert user.password_hash != "test-password-123"
     assert user.password_hash
+
+
+def test_register_requires_turnstile_when_enabled(monkeypatch):
+    monkeypatch.setenv("TURNSTILE_REQUIRED", "true")
+    monkeypatch.setenv("TURNSTILE_SECRET_KEY", "turnstile-test-secret")
+    get_settings.cache_clear()
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    client = TestClient(app)
+
+    response = client.post(
+        "/auth/register",
+        json={"email": "turnstile-missing@example.com", "password": "test-password-123"},
+    )
+
+    assert response.status_code == 400
+    assert "Turnstile verification is required" in response.json()["detail"]
+    get_settings.cache_clear()
+
+
+def test_register_verifies_turnstile_token(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class FakeTurnstileResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, bool]:
+            return {"success": True}
+
+    def fake_post(url, data, timeout):
+        captured["url"] = url
+        captured["data"] = data
+        captured["timeout"] = timeout
+        return FakeTurnstileResponse()
+
+    monkeypatch.setenv("TURNSTILE_REQUIRED", "true")
+    monkeypatch.setenv("TURNSTILE_SECRET_KEY", "turnstile-test-secret")
+    monkeypatch.setattr("app.turnstile.httpx.post", fake_post)
+    get_settings.cache_clear()
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    client = TestClient(app)
+
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": "turnstile-valid@example.com",
+            "password": "test-password-123",
+            "turnstileToken": "cf-response-token",
+        },
+    )
+
+    assert response.status_code == 201
+    assert captured["data"]["secret"] == "turnstile-test-secret"
+    assert captured["data"]["response"] == "cf-response-token"
+    get_settings.cache_clear()
 
 
 def test_upload_rejects_unsupported_file_type(api_client):
