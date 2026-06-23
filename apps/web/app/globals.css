@@ -4,25 +4,25 @@
 
 @layer base {
   :root {
-    --background: 0 0% 99%;
+    --background: 0 0% 100%;
     --foreground: 222 31% 10%;
     --card: 0 0% 100%;
     --card-foreground: 222 31% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 31% 10%;
-    --primary: 189 78% 28%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 43 94% 52%;
+    --primary-foreground: 222 31% 10%;
     --secondary: 210 18% 94%;
     --secondary-foreground: 222 31% 14%;
     --muted: 210 18% 94%;
     --muted-foreground: 215 12% 43%;
-    --accent: 188 46% 92%;
-    --accent-foreground: 189 78% 22%;
+    --accent: 45 100% 94%;
+    --accent-foreground: 222 31% 10%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
     --border: 214 18% 86%;
     --input: 214 18% 86%;
-    --ring: 189 78% 28%;
+    --ring: 43 94% 52%;
     --radius: 0.5rem;
   }
 
@@ -32,5 +32,19 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .marketing-container {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
   }
 }

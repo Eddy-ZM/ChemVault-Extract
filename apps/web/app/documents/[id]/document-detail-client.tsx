@@ -21,7 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate, statusLabel } from "@/lib/format";
 
-const visiblePipeline = ["queued", "parsing", "extracting", "validating", "review_ready"];
+const visiblePipeline = ["queued", "parsing", "extracting", "validating", "normalizing", "review_ready"];
 
 export function DocumentDetailClient({ initialDocument }: { initialDocument: Document }) {
   const [document, setDocument] = useState(initialDocument);
@@ -31,6 +31,7 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
   const [chunks, setChunks] = useState<DocumentChunk[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [startingExtraction, setStartingExtraction] = useState(false);
+  const [normalizing, setNormalizing] = useState(false);
   const [estimatingCost, setEstimatingCost] = useState(false);
   const [costEstimate, setCostEstimate] = useState<AICostEstimate | null>(null);
   const latestJob = document.latestJob;
@@ -103,6 +104,27 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
     }
   }, [document.id, refresh]);
 
+  const startNormalization = useCallback(async () => {
+    setNormalizing(true);
+    try {
+      const response = await fetch(`/api/documents/${document.id}/normalize`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.detail ?? "Unable to run normalization");
+      }
+      void refresh();
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to run normalization");
+    } finally {
+      setNormalizing(false);
+    }
+  }, [document.id, refresh]);
+
   const estimateCost = useCallback(async () => {
     setEstimatingCost(true);
     try {
@@ -139,25 +161,30 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
         </TabsList>
 
         <TabsContent value="overview" className="mt-0">
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-            <DocumentMetadataCard
-              document={document}
-              pageCount={pages.length}
-              blockCount={blocks.length}
-              tableCount={tables.length}
-              chunkCount={chunks.length}
-              sections={detectedSections}
-            />
-            <JobStatusCard
-              latestJob={latestJob}
-              currentIndex={currentIndex}
-              onRefresh={refresh}
-              onStartAiExtraction={startAiExtraction}
-              onEstimateCost={estimateCost}
-              startingExtraction={startingExtraction}
-              estimatingCost={estimatingCost}
-              costEstimate={costEstimate}
-            />
+          <div className="grid gap-6">
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+              <DocumentMetadataCard
+                document={document}
+                pageCount={pages.length}
+                blockCount={blocks.length}
+                tableCount={tables.length}
+                chunkCount={chunks.length}
+                sections={detectedSections}
+              />
+              <JobStatusCard
+                latestJob={latestJob}
+                currentIndex={currentIndex}
+                onRefresh={refresh}
+                onStartAiExtraction={startAiExtraction}
+                onEstimateCost={estimateCost}
+                onNormalize={startNormalization}
+                startingExtraction={startingExtraction}
+                normalizing={normalizing}
+                estimatingCost={estimatingCost}
+                costEstimate={costEstimate}
+              />
+            </div>
+            <DocumentTimeline document={document} pageCount={pages.length} chunkCount={chunks.length} />
           </div>
         </TabsContent>
 
@@ -178,6 +205,46 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function DocumentTimeline({
+  document,
+  pageCount,
+  chunkCount,
+}: {
+  document: Document;
+  pageCount: number;
+  chunkCount: number;
+}) {
+  const latestStatus = document.latestJob?.status;
+  const steps = [
+    { label: "Uploaded", complete: true, detail: formatDate(document.createdAt) },
+    { label: "Parsed", complete: pageCount > 0 || document.status === "parsed" || document.status === "review_ready", detail: `${pageCount} pages` },
+    { label: "AI extracted", complete: ["validating", "normalizing", "review_ready"].includes(latestStatus ?? ""), detail: latestStatus ?? "not started" },
+    { label: "Normalized", complete: ["normalizing", "review_ready"].includes(latestStatus ?? ""), detail: `${chunkCount} chunks` },
+    { label: "Reviewed", complete: document.status === "review_ready", detail: document.status },
+    { label: "Exported", complete: false, detail: "pending export job" },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Document timeline</CardTitle>
+        <CardDescription>High-level workflow from upload to export.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3 md:grid-cols-6">
+        {steps.map((step) => (
+          <div key={step.label} className="rounded-md border bg-white p-3">
+            <div className="mb-3 flex items-center gap-2">
+              <div className={step.complete ? "size-2.5 rounded-full bg-primary" : "size-2.5 rounded-full border bg-background"} />
+              <span className="text-sm font-medium">{step.label}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">{step.detail}</p>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -240,8 +307,10 @@ function JobStatusCard({
   currentIndex,
   onRefresh,
   onStartAiExtraction,
+  onNormalize,
   onEstimateCost,
   startingExtraction,
+  normalizing,
   estimatingCost,
   costEstimate,
 }: {
@@ -249,8 +318,10 @@ function JobStatusCard({
   currentIndex: number;
   onRefresh: () => void;
   onStartAiExtraction: () => void;
+  onNormalize: () => void;
   onEstimateCost: () => void;
   startingExtraction: boolean;
+  normalizing: boolean;
   estimatingCost: boolean;
   costEstimate: AICostEstimate | null;
 }) {
@@ -306,6 +377,9 @@ function JobStatusCard({
           <Button variant="default" size="sm" onClick={onStartAiExtraction} disabled={Boolean(activeJob) || startingExtraction}>
             <Sparkles data-icon="inline-start" />
             Run AI Extraction
+          </Button>
+          <Button variant="outline" size="sm" onClick={onNormalize} disabled={normalizing}>
+            Run Normalization
           </Button>
           <Button asChild variant="outline" size="sm">
             <Link href="/documents">Documents</Link>

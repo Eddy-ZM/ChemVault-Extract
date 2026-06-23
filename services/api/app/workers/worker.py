@@ -5,16 +5,24 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from app.batch_jobs import set_batch_item_status
 from app.chunking import build_chunks
 from app.config import get_settings
 from app.constants import DocumentStatus, JobStatus, JobType
+from app.constants import BatchJobItemStatus
 from app.database import SessionLocal
-from app.extractors import run_structured_extraction
+from app.extractors import normalize_records_for_job, run_structured_extraction
 from app.models import DocumentBlock, DocumentChunk, DocumentPage, ExtractionJob, ExtractionRun
 from app.parsers.interface import ParsedBlock, ParsedDocument
 from app.parsers.registry import parse_document
-from app.queue import JobQueue
+from app.queue import JobQueue, WebhookDeliveryQueue
 from app.storage import S3Storage
+from app.usage import mark_ai_usage_completed, mark_ai_usage_failed
+from app.webhook_delivery import (
+    deliver_webhook_delivery,
+    enqueue_due_webhook_deliveries,
+    enqueue_webhook_event_for_document,
+)
 
 logger = logging.getLogger("chemvault.worker")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -128,6 +136,19 @@ def _process_parse_job(
     _parse_job_document(db, job, storage_client, max_chunk_words)
     time.sleep(step_delay_seconds)
     _record_status(db, job, JobStatus.REVIEW_READY)
+    enqueue_webhook_event_for_document(
+        db,
+        None,
+        document=job.document,
+        event_type="document.parsed",
+        data={
+            "job_id": job.id,
+            "status": job.status,
+            "pages_url": f"/v1/documents/{job.document_id}",
+            "chunks_url": f"/v1/documents/{job.document_id}/chunks",
+        },
+    )
+    db.commit()
 
 
 def _process_ai_extraction_job(
@@ -141,15 +162,77 @@ def _process_ai_extraction_job(
     if not _document_has_chunks(db, job.document_id):
         _record_status(db, job, JobStatus.PARSING)
         _parse_job_document(db, job, storage_client, max_chunk_words)
+        enqueue_webhook_event_for_document(
+            db,
+            None,
+            document=job.document,
+            event_type="document.parsed",
+            data={
+                "job_id": job.id,
+                "status": job.status,
+                "chunks_url": f"/v1/documents/{job.document_id}/chunks",
+            },
+        )
+        db.commit()
 
     _record_status(db, job, JobStatus.EXTRACTING)
+    enqueue_webhook_event_for_document(
+        db,
+        None,
+        document=job.document,
+        event_type="extraction.started",
+        data={"job_id": job.id, "status": job.status},
+    )
+    db.commit()
     run_structured_extraction(db, job, settings)
     _record_status(db, job, JobStatus.VALIDATING)
+
+    _record_status(db, job, JobStatus.NORMALIZING)
+    try:
+        normalize_records_for_job(db, job.id)
+        enqueue_webhook_event_for_document(
+            db,
+            None,
+            document=job.document,
+            event_type="normalization.completed",
+            data={"job_id": job.id, "status": job.status},
+        )
+        db.commit()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Normalization failed for job %s: %s", job.id, exc)
+        enqueue_webhook_event_for_document(
+            db,
+            None,
+            document=job.document,
+            event_type="normalization.failed",
+            data={"job_id": job.id, "error": str(exc)},
+        )
+        db.commit()
+
     time.sleep(step_delay_seconds)
     _record_status(db, job, JobStatus.REVIEW_READY)
+    mark_ai_usage_completed(db, job.id)
+    enqueue_webhook_event_for_document(
+        db,
+        None,
+        document=job.document,
+        event_type="extraction.completed",
+        data={
+            "job_id": job.id,
+            "status": job.status,
+            "records_url": f"/v1/documents/{job.document_id}/records",
+            "review_url": f"/documents/{job.document_id}/review",
+        },
+    )
+    db.commit()
 
 
-def process_job(job_id: str, storage: S3Storage | None = None, step_delay_seconds: float | None = None) -> None:
+def process_job(
+    job_id: str,
+    storage: S3Storage | None = None,
+    step_delay_seconds: float | None = None,
+    webhook_queue: WebhookDeliveryQueue | None = None,
+) -> None:
     settings = get_settings()
     storage_client = storage or S3Storage(settings)
     delay = settings.worker_step_delay_seconds if step_delay_seconds is None else step_delay_seconds
@@ -158,13 +241,20 @@ def process_job(job_id: str, storage: S3Storage | None = None, step_delay_second
         if job is None:
             logger.warning("Skipping missing job %s", job_id)
             return
+        if any(item.status == BatchJobItemStatus.SKIPPED.value for item in job.batch_items):
+            logger.info("Skipping cancelled batch item job %s", job_id)
+            return
 
         try:
+            set_batch_item_status(db, extraction_job_id=job.id, status=BatchJobItemStatus.RUNNING.value)
+            db.commit()
             job.error = None
             if (job.job_type or JobType.PARSE.value) == JobType.AI_EXTRACTION.value:
                 _process_ai_extraction_job(db, job, storage_client, delay, settings.max_chunk_tokens)
             else:
                 _process_parse_job(db, job, storage_client, delay, settings.max_chunk_tokens)
+            set_batch_item_status(db, extraction_job_id=job.id, status=BatchJobItemStatus.COMPLETED.value)
+            db.commit()
             logger.info("Job %s reached %s", job.id, JobStatus.REVIEW_READY.value)
         except Exception as exc:  # noqa: BLE001
             db.rollback()
@@ -172,18 +262,46 @@ def process_job(job_id: str, storage: S3Storage | None = None, step_delay_second
             if job is not None:
                 job.error = str(exc)
                 _record_status(db, job, JobStatus.FAILED, str(exc))
+                if (job.job_type or JobType.PARSE.value) == JobType.AI_EXTRACTION.value:
+                    mark_ai_usage_failed(db, job.id)
+                    event_type = "extraction.failed"
+                else:
+                    event_type = "document.parse_failed"
+                enqueue_webhook_event_for_document(
+                    db,
+                    webhook_queue,
+                    document=job.document,
+                    event_type=event_type,
+                    data={"job_id": job.id, "error": str(exc), "status": job.status},
+                )
+                set_batch_item_status(
+                    db,
+                    extraction_job_id=job.id,
+                    status=BatchJobItemStatus.FAILED.value,
+                    error=str(exc),
+                )
+                db.commit()
             logger.exception("Job %s failed", job_id)
 
 
 def run() -> None:
     settings = get_settings()
     queue = JobQueue(settings)
+    webhook_queue = WebhookDeliveryQueue(settings)
     logger.info("Worker listening on Redis queue %s", settings.redis_queue)
     while True:
+        with SessionLocal() as db:
+            enqueue_due_webhook_deliveries(db, webhook_queue)
+            db.commit()
+        delivery_id = webhook_queue.pop_delivery(timeout_seconds=1)
+        if delivery_id is not None:
+            with SessionLocal() as db:
+                deliver_webhook_delivery(db, delivery_id)
+            continue
         job_id = queue.pop_job(timeout_seconds=5)
         if job_id is None:
             continue
-        process_job(job_id)
+        process_job(job_id, webhook_queue=webhook_queue)
 
 
 if __name__ == "__main__":

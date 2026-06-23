@@ -2,7 +2,7 @@
 
 import { FormEvent, useRef, useState } from "react";
 import Link from "next/link";
-import type { UploadDocumentResponse } from "@chemvault-extract/schemas";
+import type { Project, UploadDocumentResponse } from "@chemvault-extract/schemas";
 import { FileUp, Loader2 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -11,10 +11,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function UploadForm() {
+export function UploadForm({ projects }: { projects: Project[] }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<UploadDocumentResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [isUploading, setIsUploading] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -24,9 +25,14 @@ export function UploadForm() {
       setError("Select a file before uploading.");
       return;
     }
+    if (!projectId) {
+      setError("Create or select a project before uploading.");
+      return;
+    }
 
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("project_id", projectId);
     setIsUploading(true);
     setError(null);
     setResult(null);
@@ -59,6 +65,24 @@ export function UploadForm() {
         <CardContent>
           <form className="flex flex-col gap-5" onSubmit={onSubmit}>
             <div className="flex flex-col gap-2">
+              <Label htmlFor="project">Project</Label>
+              <select
+                id="project"
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={projectId}
+                onChange={(event) => setProjectId(event.target.value)}
+                disabled={isUploading}
+                required
+              >
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                    {project.workspaceId ? " (workspace)" : " (personal)"}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="file">Source file</Label>
               <Input
                 ref={inputRef}
@@ -76,6 +100,9 @@ export function UploadForm() {
               </Button>
               <Button asChild type="button" variant="outline">
                 <Link href="/documents">Documents</Link>
+              </Button>
+              <Button asChild type="button" variant="ghost">
+                <Link href="/projects/new">New project</Link>
               </Button>
             </div>
           </form>
@@ -115,7 +142,7 @@ export function UploadForm() {
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">Pipeline status</CardTitle>
-              <CardDescription>Uploaded files are stored in MinIO, then a queued job is pushed to Redis.</CardDescription>
+              <CardDescription>Uploaded files are stored in S3-compatible storage, then a parsing job is queued.</CardDescription>
             </CardHeader>
           </Card>
         )}

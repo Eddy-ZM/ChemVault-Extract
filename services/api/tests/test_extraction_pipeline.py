@@ -3,11 +3,12 @@ import io
 from sqlalchemy import select
 
 from app.config import get_settings
-from app.constants import JobType
 from app.database import SessionLocal
 from app.extractors.openai_client import OpenAIStructuredOutputClient
 from app.models import (
+    AiUsageRecord,
     ChemicalEntity,
+    Document,
     DocumentChunk,
     ExtractionJob,
     ExtractionRun,
@@ -27,11 +28,12 @@ def test_extract_ai_endpoint_requires_openai_api_key(api_client):
     response = api_client.post(f"/documents/{upload['document']['id']}/extract-ai")
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "OPENAI_API_KEY is missing. Please configure it before running AI extraction."
+    assert response.json()["detail"] == "Platform OpenAI API key is missing."
 
 
-def test_extract_ai_endpoint_requires_parsed_chunks(api_client, monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+def test_extract_ai_endpoint_accepts_unparsed_document(api_client, fake_storage, fake_queue, monkeypatch):
+    monkeypatch.setenv("AI_PROVIDER", "none")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     get_settings.cache_clear()
     upload = api_client.post(
         "/documents/upload",
@@ -40,10 +42,25 @@ def test_extract_ai_endpoint_requires_parsed_chunks(api_client, monkeypatch):
 
     response = api_client.post(f"/documents/{upload['document']['id']}/extract-ai")
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "Document has no parsed chunks. Parse the document before running AI extraction."
+    assert response.status_code == 201
+    body = response.json()
+    assert body["job"]["status"] == "queued"
+    assert body["estimatedCost"]["selectedChunks"] == 0
+    assert body["estimatedCost"]["estimatedCostUsd"] == 0.0
+    assert body["estimatedCost"]["warning"].startswith("AI extraction may incur OpenAI API costs.")
+    assert fake_queue.pushed[-1] == body["job"]["id"]
 
 
+def test_extract_ai_endpoint_accepts_openai_api_key(api_client, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    get_settings.cache_clear()
+    upload = api_client.post(
+        "/documents/upload",
+        files={"file": ("paper.md", io.BytesIO(b"# Abstract\nA test paper."), "text/markdown")},
+    ).json()
+    response = api_client.post(f"/documents/{upload['document']['id']}/extract-ai")
+
+    assert response.status_code == 201
 def test_extract_ai_endpoint_creates_openai_job_when_key_is_configured(
     api_client,
     fake_queue,
@@ -54,7 +71,11 @@ def test_extract_ai_endpoint_creates_openai_job_when_key_is_configured(
     get_settings.cache_clear()
     upload = api_client.post(
         "/documents/upload",
-        files={"file": ("paper.md", io.BytesIO(b"# Abstract\nA test paper."), "text/markdown")},
+        files={
+            "file": (
+                "paper.md",
+                io.BytesIO(b"# Abstract\nA test paper."), "text/markdown"),
+        },
     ).json()
     process_job(upload["job"]["id"], storage=fake_storage, step_delay_seconds=0)
 
@@ -111,11 +132,21 @@ def test_extract_ai_endpoint_enforces_monthly_limit(api_client, fake_storage, mo
     ).json()
     process_job(upload["job"]["id"], storage=fake_storage, step_delay_seconds=0)
     with SessionLocal() as db:
+        document = db.get(Document, upload["document"]["id"])
+        user = document.project.user
+        user.monthly_ai_file_limit = 1
+        user.monthly_ai_cost_limit_usd = 5.0
         db.add(
-            ExtractionJob(
+            AiUsageRecord(
+                user_id=user.id,
+                project_id=document.project_id,
                 document_id=upload["document"]["id"],
-                job_type=JobType.AI_EXTRACTION.value,
-                status="review_ready",
+                provider="openai",
+                model="gpt-5.4",
+                input_tokens_estimated=10,
+                output_tokens_estimated=10,
+                estimated_cost_usd=0.01,
+                status="completed",
             )
         )
         db.commit()
@@ -123,7 +154,7 @@ def test_extract_ai_endpoint_enforces_monthly_limit(api_client, fake_storage, mo
     response = api_client.post(f"/documents/{upload['document']['id']}/extract-ai")
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Monthly AI extraction limit reached."
+    assert response.json()["detail"] == "Monthly AI extraction file limit reached."
 
 
 def test_worker_runs_offline_extraction_without_creating_fake_records(api_client, fake_storage, monkeypatch):
@@ -164,7 +195,12 @@ def test_worker_runs_offline_extraction_without_creating_fake_records(api_client
 
     assert job.status == "review_ready"
     assert chunks
-    assert [run.status for run in runs if not run.extractor_type] == ["extracting", "validating", "review_ready"]
+    assert [run.status for run in runs if not run.extractor_type] == [
+        "extracting",
+        "validating",
+        "normalizing",
+        "review_ready",
+    ]
     assert {run.extractor_type for run in extractor_runs} == {
         "metadata",
         "chemical_entities",

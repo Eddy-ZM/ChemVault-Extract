@@ -10,9 +10,22 @@ os.environ["S3_ENDPOINT"] = "http://localhost:9000"
 os.environ["S3_ACCESS_KEY"] = "test"
 os.environ["S3_SECRET_KEY"] = "test"
 os.environ["S3_BUCKET"] = "test-bucket"
+os.environ["STORAGE_PROVIDER"] = "minio"
+os.environ["QUEUE_PROVIDER"] = "redis"
+os.environ["JWT_SECRET"] = "test-jwt-secret"
+os.environ["APP_ENCRYPTION_KEY"] = "test-encryption-key"
+os.environ["INTERNAL_WORKER_TOKEN"] = "test-internal-token"
+os.environ["STRIPE_SECRET_KEY"] = "sk_test_placeholder"
+os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_test_secret"
+os.environ["STRIPE_PRICE_STUDENT_MONTHLY"] = "price_student_monthly"
+os.environ["STRIPE_PRICE_RESEARCHER_MONTHLY"] = "price_researcher_monthly"
+os.environ["STRIPE_PRICE_LAB_MONTHLY"] = "price_lab_monthly"
+os.environ["STRIPE_PRICE_STUDENT_YEARLY"] = "price_student_yearly"
+os.environ["STRIPE_PRICE_RESEARCHER_YEARLY"] = "price_researcher_yearly"
+os.environ["STRIPE_PRICE_LAB_YEARLY"] = "price_lab_yearly"
 
 from app.database import Base, engine, get_db  # noqa: E402
-from app.dependencies import get_queue, get_storage  # noqa: E402
+from app.dependencies import get_queue, get_storage, get_webhook_delivery_queue  # noqa: E402
 from app.main import app  # noqa: E402
 from app.config import get_settings  # noqa: E402
 
@@ -47,6 +60,14 @@ class FakeQueue:
         self.pushed.append(job_id)
 
 
+class FakeWebhookQueue:
+    def __init__(self) -> None:
+        self.pushed: list[str] = []
+
+    def push_delivery(self, delivery_id: str) -> None:
+        self.pushed.append(delivery_id)
+
+
 @pytest.fixture()
 def fake_storage() -> FakeStorage:
     return FakeStorage()
@@ -58,13 +79,29 @@ def fake_queue() -> FakeQueue:
 
 
 @pytest.fixture()
-def api_client(fake_storage: FakeStorage, fake_queue: FakeQueue) -> Generator[TestClient, None, None]:
+def fake_webhook_queue() -> FakeWebhookQueue:
+    return FakeWebhookQueue()
+
+
+@pytest.fixture()
+def api_client(
+    fake_storage: FakeStorage,
+    fake_queue: FakeQueue,
+    fake_webhook_queue: FakeWebhookQueue,
+) -> Generator[TestClient, None, None]:
     get_settings.cache_clear()
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     app.dependency_overrides[get_storage] = lambda: fake_storage
     app.dependency_overrides[get_queue] = lambda: fake_queue
+    app.dependency_overrides[get_webhook_delivery_queue] = lambda: fake_webhook_queue
     with TestClient(app) as client:
+        register = client.post(
+            "/auth/register",
+            json={"email": "test@example.com", "password": "test-password-123", "name": "Test User"},
+        )
+        token = register.json()["accessToken"]
+        client.headers.update({"authorization": f"Bearer {token}"})
         yield client
     app.dependency_overrides.clear()
     get_settings.cache_clear()

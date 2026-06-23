@@ -2,7 +2,10 @@ import type { Document } from "@chemvault-extract/schemas";
 
 import { DocumentsTable } from "@/components/documents-table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { PageHeader } from "@/components/product-ui";
+import { Button } from "@/components/ui/button";
 import { listDocuments } from "@/lib/api";
+import Link from "next/link";
 
 export default async function DocumentsPage() {
   let documents: Document[] = [];
@@ -16,10 +19,20 @@ export default async function DocumentsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold tracking-normal">Documents</h1>
-        <p className="text-sm text-muted-foreground">Uploaded source files and their latest extraction jobs.</p>
-      </div>
+      <PageHeader
+        title="Documents"
+        description="Uploaded source files, parsing status, extraction status, review readiness, and project scope."
+        actions={
+          <>
+            <Button asChild>
+              <Link href="/documents/upload">Upload</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/documents/batch-upload">Batch upload</Link>
+            </Button>
+          </>
+        }
+      />
 
       {error ? (
         <Alert variant="destructive">

@@ -7,8 +7,8 @@ from app.models import DocumentChunk
 def test_select_chunks_for_ai_prioritizes_sections_excludes_references_and_truncates():
     settings = AISettings(
         provider="openai",
-        default_model="gpt-5.4",
-        fallback_model="gpt-5.4",
+        default_model="gpt-4.1-mini",
+        fallback_model="gpt-5.5",
         max_chunks_per_document=2,
         max_chunk_chars=10,
         enable_fallback_model=False,
@@ -63,20 +63,19 @@ def test_select_chunks_for_ai_prioritizes_sections_excludes_references_and_trunc
     assert estimate_tokens("abcd", 0.25) == 1
 
 
-def test_estimate_ai_cost_uses_configured_gpt_54_pricing():
-    estimate = estimate_ai_cost(input_tokens=25_000, output_tokens=6_250, model="gpt-5.4")
+def test_estimate_ai_cost_uses_configured_gpt_4_1_mini_pricing():
+    estimate = estimate_ai_cost(input_tokens=25_000, output_tokens=6_250, model="gpt-4.1-mini")
 
     assert estimate == {
-        "model": "gpt-5.4",
+        "model": "gpt-4.1-mini",
         "input_tokens": 25_000,
         "output_tokens": 6_250,
-        "input_cost_usd": 0.0625,
-        "output_cost_usd": 0.09375,
-        "estimated_cost_usd": 0.15625,
+        "input_cost_usd": 0.01,
+        "output_cost_usd": 0.01,
+        "estimated_cost_usd": 0.02,
         "pricing": {
-            "input_per_1m": 2.5,
-            "output_per_1m": 15.0,
-            "cached_input_per_1m": 0.25,
+            "input_per_1m": 0.4,
+            "output_per_1m": 1.6,
         },
     }
 

@@ -4,11 +4,18 @@
   "version": "0.1.0",
   "workspaces": [
     "apps/web",
-    "packages/schemas"
+    "packages/schemas",
+    "packages/js-sdk",
+    "workers/api-gateway",
+    "workers/webhook-delivery"
   ],
   "scripts": {
     "dev": "npm run dev -w apps/web",
     "build": "npm run build -w apps/web",
-    "start": "npm run start -w apps/web"
+    "start": "npm run start -w apps/web",
+    "deploy:web": "npm run deploy:cloudflare -w apps/web",
+    "deploy:api-gateway": "npm run deploy -w @chemvault/api-gateway-worker",
+    "deploy:webhooks": "npm run deploy -w @chemvault/webhook-delivery-worker",
+    "deploy:cloudflare": "npm run deploy:web && npm run deploy:api-gateway && npm run deploy:webhooks"
   }
 }

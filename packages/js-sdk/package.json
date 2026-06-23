@@ -1,0 +1,16 @@
+{
+  "name": "@chemvault/sdk",
+  "version": "0.1.0",
+  "description": "JavaScript SDK for the ChemVault Extract developer API.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

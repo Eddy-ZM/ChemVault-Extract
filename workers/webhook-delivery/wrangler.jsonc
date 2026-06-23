@@ -1,0 +1,18 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "chemvault-webhook-delivery",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-23",
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {
+    "BACKEND_API_URL": "https://api.chemvault.science"
+  },
+  "queues": {
+    "consumers": [
+      {
+        "queue": "chemvault-webhook-delivery"
+      }
+    ]
+  }
+}

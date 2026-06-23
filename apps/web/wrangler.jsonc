@@ -23,6 +23,9 @@
     }
   ],
   "vars": {
-    "API_BASE_URL": "https://api.chemvault.science"
+    "API_BASE_URL": "https://api.chemvault.science",
+    "NEXT_PUBLIC_API_BASE_URL": "https://api.chemvault.science",
+    "NEXT_PUBLIC_APP_URL": "https://app.chemvault.science",
+    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": ""
   }
 }

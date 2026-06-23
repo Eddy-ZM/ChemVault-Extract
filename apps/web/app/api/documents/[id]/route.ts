@@ -1,15 +1,12 @@
-import { API_BASE_URL } from "@/lib/api";
+import { apiUrl, buildApiHeaders, proxyApiResponse } from "@/lib/proxy";
 
 export const runtime = "nodejs";
 
-export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const response = await fetch(`${API_BASE_URL}/documents/${id}`, { cache: "no-store" });
-  const body = await response.text();
-  return new Response(body, {
-    status: response.status,
-    headers: {
-      "content-type": response.headers.get("content-type") ?? "application/json",
-    },
+  const response = await fetch(apiUrl(`/documents/${id}`), {
+    headers: buildApiHeaders(request),
+    cache: "no-store",
   });
+  return proxyApiResponse(response);
 }

@@ -1,20 +1,117 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { FileUp, Files, FlaskConical, LayoutDashboard } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  CreditCard,
+  Database,
+  FileCheck2,
+  FileUp,
+  Files,
+  FlaskConical,
+  FolderPlus,
+  LayoutDashboard,
+  Layers3,
+  LogOut,
+  Search,
+  Settings,
+  Tags,
+  TerminalSquare,
+  UploadCloud,
+  User,
+  Users,
+  WalletCards,
+} from "lucide-react";
+import type { User as UserRecord } from "@chemvault-extract/schemas";
 
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { PublicFooter, PublicNav } from "@/components/marketing";
 
 const navItems = [
-  { href: "/", label: "Home", icon: FlaskConical },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/workspaces", label: "Workspaces", icon: Users },
+  { href: "/projects/new", label: "New Project", icon: FolderPlus },
   { href: "/documents", label: "Documents", icon: Files },
   { href: "/documents/upload", label: "Upload", icon: FileUp },
+  { href: "/documents/batch-upload", label: "Batch Upload", icon: UploadCloud },
+  { href: "/review", label: "Review", icon: FileCheck2 },
+  { href: "/batch", label: "Batch Jobs", icon: Layers3 },
+  { href: "/database", label: "Database", icon: Database },
+  { href: "/search", label: "Search", icon: Search },
+  { href: "/exports", label: "Exports", icon: CreditCard },
+  { href: "/developers", label: "Developers", icon: TerminalSquare },
+  { href: "/usage", label: "Usage", icon: WalletCards },
+  { href: "/pricing", label: "Pricing", icon: Tags },
+  { href: "/account/billing", label: "Billing", icon: CreditCard },
+  { href: "/settings/ai", label: "AI Settings", icon: Settings },
+  { href: "/account", label: "Account", icon: User },
+];
+const publicRoutes = new Set(["/", "/features", "/pricing", "/demo", "/use-cases", "/security", "/docs", "/contact", "/login", "/register"]);
+const protectedPrefixes = [
+  "/dashboard",
+  "/documents",
+  "/workspaces",
+  "/projects",
+  "/batch",
+  "/database",
+  "/search",
+  "/review",
+  "/exports",
+  "/settings",
+  "/developers",
+  "/usage",
+  "/account",
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [user, setUser] = useState<UserRecord | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          if (response.status === 401 && protectedPrefixes.some((prefix) => pathname.startsWith(prefix))) {
+            router.push(`/login?next=${encodeURIComponent(pathname)}`);
+          }
+          return null;
+        }
+        return (await response.json()) as UserRecord;
+      })
+      .then((body) => {
+        if (!cancelled) setUser(body);
+      })
+      .catch(() => {
+        if (!cancelled) setUser(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, router]);
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    window.localStorage.removeItem("chemvault_token");
+    setUser(null);
+    router.push("/login");
+    router.refresh();
+  }
+
+  const publicPath = publicRoutes.has(pathname) || pathname.startsWith("/docs/");
+
+  if (publicPath) {
+    return (
+      <div className="min-h-screen bg-background">
+        <PublicNav userEmail={user?.email} />
+        <main>{children}</main>
+        <PublicFooter />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -52,19 +149,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex h-16 items-center justify-between border-b bg-card px-4 lg:px-8">
-            <Link href="/" className="flex items-center gap-3 lg:hidden">
+            <Link href="/dashboard" className="flex items-center gap-3 lg:hidden">
               <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
                 <FlaskConical className="size-4" />
               </div>
               <span className="text-sm font-semibold">ChemVault Extract</span>
             </Link>
             <div className="hidden text-sm text-muted-foreground lg:block">Scientific document ingestion</div>
-            <Link
-              href="/documents/upload"
-              className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
-            >
-              Upload
-            </Link>
+            <div className="flex items-center gap-2">
+              {user ? (
+                <>
+                  <span className="hidden max-w-56 truncate text-sm text-muted-foreground md:inline">{user.email}</span>
+                  <Button variant="outline" size="sm" onClick={logout}>
+                    <LogOut data-icon="inline-start" />
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/login">Login</Link>
+                  </Button>
+                  <Button asChild size="sm">
+                    <Link href="/register">Register</Link>
+                  </Button>
+                </>
+              )}
+            </div>
           </header>
           <main className="flex-1 px-4 py-6 lg:px-8">{children}</main>
         </div>

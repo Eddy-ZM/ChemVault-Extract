@@ -22,10 +22,17 @@ CHUNK_SECTION_PRIORITY = (
 AI_COST_WARNING = "AI extraction may incur OpenAI API costs."
 
 MODEL_PRICING = {
+    "gpt-4.1-mini": {
+        "input_per_1m": 0.40,
+        "output_per_1m": 1.60,
+    },
     "gpt-5.4": {
-        "input_per_1m": 2.50,
-        "output_per_1m": 15.00,
-        "cached_input_per_1m": 0.25,
+        "input_per_1m": 5.00,
+        "output_per_1m": 30.00,
+    },
+    "gpt-5.5": {
+        "input_per_1m": 5.00,
+        "output_per_1m": 30.00,
     },
 }
 
@@ -80,11 +87,11 @@ def get_ai_settings(settings: Settings) -> AISettings:
 
 
 def estimate_tokens(text: str, ratio: float = 0.25) -> int:
-    return max(1, int(len(text) * ratio)) if text else 0
+    return int(len(text) * ratio) if text else 0
 
 
 def estimate_ai_cost(*, input_tokens: int, output_tokens: int, model: str) -> dict:
-    pricing = MODEL_PRICING.get(model, MODEL_PRICING["gpt-5.4"])
+    pricing = MODEL_PRICING.get(model, MODEL_PRICING["gpt-4.1-mini"])
     input_cost = (input_tokens / 1_000_000) * pricing["input_per_1m"]
     output_cost = (output_tokens / 1_000_000) * pricing["output_per_1m"]
     estimated_cost = input_cost + output_cost

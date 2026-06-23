@@ -20,7 +20,7 @@ def validate_evidence(
     if not evidence:
         return EvidenceValidationResult(False, "needs_review", ["Evidence is missing."])
 
-    chunk_id = evidence.get("chunk_id")
+    chunk_id = evidence.get("chunk_id") or evidence.get("chunkId")
     chunk = next((candidate for candidate in chunks if candidate.id == chunk_id), None)
     if evidence.get("document_id") != document_id:
         errors.append("Evidence document_id does not match the current document.")
