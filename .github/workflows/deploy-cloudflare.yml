@@ -27,6 +27,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       API_BASE_URL: https://api.chemvault.science
+      BACKEND_API_URL: ${{ secrets.BACKEND_API_URL }}
       NEXT_PUBLIC_API_BASE_URL: https://api.chemvault.science
       NEXT_PUBLIC_APP_URL: https://app.chemvault.science
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
@@ -61,11 +62,34 @@ jobs:
       - name: Deploy frontend Worker
         run: npm run deploy:cloudflare -w apps/web
 
+      - name: Configure API gateway backend
+        if: env.BACKEND_API_URL != ''
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = "workers/api-gateway/wrangler.jsonc";
+          const config = JSON.parse(fs.readFileSync(path, "utf8"));
+          config.vars = config.vars || {};
+          config.vars.BACKEND_API_URL = process.env.BACKEND_API_URL;
+          fs.writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
+          NODE
+
       - name: Deploy API gateway Worker
+        if: env.BACKEND_API_URL != ''
         run: npm run deploy -w @chemvault/api-gateway-worker
 
+      - name: Ensure webhook delivery queue exists
+        if: env.BACKEND_API_URL != ''
+        run: npx wrangler queues create chemvault-webhook-delivery || true
+
       - name: Deploy webhook delivery Worker
+        if: env.BACKEND_API_URL != ''
         run: npm run deploy -w @chemvault/webhook-delivery-worker
+
+      - name: Skip backend edge workers
+        if: env.BACKEND_API_URL == ''
+        run: |
+          echo "Skipping API gateway and webhook delivery workers because BACKEND_API_URL is not configured."
 
       - name: Backend deployment placeholder
         run: |
