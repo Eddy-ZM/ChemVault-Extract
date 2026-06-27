@@ -377,9 +377,9 @@ No record is auto-approved after normalization. Review items remain `pending`/`n
 
 ## Authentication, Usage, Billing, And API Keys
 
-ChemVault Extract requires a JWT for document, extraction, usage, settings, export, and review APIs. Anonymous users cannot upload documents or run AI extraction.
+ChemVault Extract uses ChemVault User Center as the primary account system. Public `/login` and `/register` pages redirect to `user.chemvault.science` with a `returnTo` URL, and the backend accepts the shared `chemvault_session` httpOnly cookie. Anonymous users cannot upload documents or run AI extraction.
 
-The web app stores the returned JWT and a masked current-user profile in browser storage for client navigation state. The backend remains the source of truth for every protected request.
+The legacy Extract JWT login/register endpoints remain available for local compatibility and tests, but production sign-in should go through User Center. The web app stores only a cached current-user profile in browser storage for client navigation state. The backend remains the source of truth for every protected request.
 
 Register and login:
 
@@ -401,6 +401,19 @@ curl http://localhost:8000/documents \
 ```
 
 Every project belongs to a user. Documents, jobs, review items, extracted records, usage records, and exports are only accessible through the owning user's projects. Accessing another user's document ID returns `403`.
+
+User Center integration:
+
+```bash
+NEXT_PUBLIC_CHEMVAULT_USER_URL=https://user.chemvault.science
+CHEMVAULT_USER_BASE_URL=https://user.chemvault.science
+CHEMVAULT_USER_COOKIE_NAME=chemvault_session
+CHEMVAULT_USER_COOKIE_DOMAIN=.chemvault.science
+CHEMVAULT_USER_SERVICE_KEY=chemvault_extract
+CHEMVAULT_USER_REQUIRE_SERVICE_ACCESS=false
+```
+
+When a shared User Center session first reaches the FastAPI backend, Extract validates it against `/api/auth/me`, creates or updates the local `User` row by email, and creates the default local project/subscription/settings if needed. Existing Extract billing, usage, and project data are not overwritten by User Center profile sync. Set `CHEMVAULT_USER_REQUIRE_SERVICE_ACCESS=true` to additionally require User Center service access for `chemvault_extract`.
 
 Registration can be protected by Cloudflare Turnstile. Configure the browser-visible site key in the frontend and the secret key in the FastAPI environment:
 
@@ -799,6 +812,7 @@ For non-Docker frontend development, set `API_BASE_URL=http://localhost:8000` in
 - `NEXT_PUBLIC_API_BASE_URL`: Browser-visible API URL.
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`: Browser-safe Stripe publishable key.
 - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`: Browser-safe Cloudflare Turnstile site key for the registration form.
+- `NEXT_PUBLIC_CHEMVAULT_USER_URL`: Browser-visible ChemVault User Center URL used by `/login` and `/register` redirects.
 - `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE_ID`: Cloudflare deployment/configuration values.
 - `CLOUDFLARE_QUEUE_NAME`, `CLOUDFLARE_QUEUE_ID`: Optional Cloudflare Queue configuration.
 - `INTERNAL_WORKER_TOKEN`: Shared secret used by Cloudflare internal workers to call protected backend endpoints.
@@ -811,6 +825,11 @@ For non-Docker frontend development, set `API_BASE_URL=http://localhost:8000` in
 - `TURNSTILE_SECRET_KEY`: Server-side Cloudflare Turnstile secret key used by `/auth/register`.
 - `TURNSTILE_REQUIRED`: Set to `true` in production to require Turnstile verification for registration.
 - `TURNSTILE_TIMEOUT_SECONDS`: Timeout for Turnstile server-side validation. Defaults to `5.0`.
+- `CHEMVAULT_USER_BASE_URL`: Server-side ChemVault User Center origin used to validate shared sessions.
+- `CHEMVAULT_USER_COOKIE_NAME`: Shared User Center cookie name. Defaults to `chemvault_session`.
+- `CHEMVAULT_USER_COOKIE_DOMAIN`: Cookie domain used when clearing shared sessions from the web app. Production uses `.chemvault.science`.
+- `CHEMVAULT_USER_SERVICE_KEY`: User Center service key for Extract access checks. Defaults to `chemvault_extract`.
+- `CHEMVAULT_USER_REQUIRE_SERVICE_ACCESS`: Set to `true` to enforce User Center service access before syncing a user.
 - `AI_PROVIDER`: AI provider. Use `openai` for the MVP.
 - `OPENAI_API_KEY`: Platform OpenAI key used when a user does not use their own key.
 - `OPENAI_MODEL`: Default extraction model. Defaults to `gpt-5.4`.

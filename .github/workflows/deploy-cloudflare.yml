@@ -32,6 +32,10 @@ jobs:
       NEXT_PUBLIC_APP_URL: https://app.chemvault.science
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+      NEXT_PUBLIC_CHEMVAULT_USER_URL: https://user.chemvault.science
+      CHEMVAULT_USER_BASE_URL: https://user.chemvault.science
+      CHEMVAULT_USER_COOKIE_NAME: chemvault_session
+      CHEMVAULT_USER_COOKIE_DOMAIN: .chemvault.science
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - name: Check out repository

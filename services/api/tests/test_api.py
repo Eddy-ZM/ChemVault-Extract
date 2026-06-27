@@ -115,6 +115,100 @@ def test_register_verifies_turnstile_token(monkeypatch):
     get_settings.cache_clear()
 
 
+def test_chemvault_user_session_syncs_local_user(monkeypatch):
+    calls: list[str] = []
+
+    class FakeUserCenterResponse:
+        status_code = 200
+
+        def __init__(self, body):
+            self._body = body
+
+        def json(self):
+            return self._body
+
+    def fake_get(url, params=None, headers=None, timeout=None):
+        calls.append(url)
+        assert headers["cookie"] == "chemvault_session=session-token"
+        return FakeUserCenterResponse(
+            {
+                "user": {
+                    "id": "usr_main_123",
+                    "email": "central@example.com",
+                    "name": "Central User",
+                    "role": "free",
+                    "systemRole": "user",
+                    "status": "active",
+                    "globalStatus": "active",
+                }
+            }
+        )
+
+    monkeypatch.setattr("app.chemvault_user.httpx.get", fake_get)
+    get_settings.cache_clear()
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    client = TestClient(app)
+
+    response = client.get("/auth/me", cookies={"chemvault_session": "session-token"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["email"] == "central@example.com"
+    assert body["name"] == "Central User"
+    assert calls == ["https://user.chemvault.science/api/auth/me"]
+    with SessionLocal() as db:
+        user = db.scalars(select(User).where(User.email == "central@example.com")).first()
+        assert user is not None
+        assert user.password_hash is None
+        assert len(user.projects) == 1
+        assert len(user.subscriptions) == 1
+    get_settings.cache_clear()
+
+
+def test_chemvault_user_service_access_can_be_enforced(monkeypatch):
+    class FakeUserCenterResponse:
+        def __init__(self, status_code, body):
+            self.status_code = status_code
+            self._body = body
+
+        def json(self):
+            return self._body
+
+    def fake_get(url, params=None, headers=None, timeout=None):
+        if url.endswith("/api/auth/me"):
+            return FakeUserCenterResponse(
+                200,
+                {
+                    "user": {
+                        "id": "usr_main_456",
+                        "email": "denied@example.com",
+                        "name": "Denied User",
+                        "role": "free",
+                        "systemRole": "user",
+                        "status": "active",
+                        "globalStatus": "active",
+                    }
+                },
+            )
+        assert url.endswith("/api/access/check")
+        assert params == {"service": "chemvault_extract"}
+        return FakeUserCenterResponse(200, {"allowed": False, "reason": "missing_service_access"})
+
+    monkeypatch.setenv("CHEMVAULT_USER_REQUIRE_SERVICE_ACCESS", "true")
+    monkeypatch.setattr("app.chemvault_user.httpx.get", fake_get)
+    get_settings.cache_clear()
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    client = TestClient(app)
+
+    response = client.get("/auth/me", cookies={"chemvault_session": "session-token"})
+
+    assert response.status_code == 403
+    assert "Extract access" in response.json()["detail"]
+    get_settings.cache_clear()
+
+
 def test_upload_rejects_unsupported_file_type(api_client):
     response = api_client.post(
         "/documents/upload",

@@ -42,9 +42,17 @@ export const AUTH_COOKIE_NAME = "chemvault_token";
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+  const userCenterSession = cookieStore.get(process.env.CHEMVAULT_USER_COOKIE_NAME ?? "chemvault_session")?.value;
+  const cookieHeader = cookieStore
+    .getAll()
+    .map((cookie) => `${cookie.name}=${encodeURIComponent(cookie.value)}`)
+    .join("; ");
   const headers = new Headers(init?.headers);
-  if (token && !headers.has("authorization")) {
+  if (token && !userCenterSession && !headers.has("authorization")) {
     headers.set("authorization", `Bearer ${token}`);
+  }
+  if (cookieHeader && !headers.has("cookie")) {
+    headers.set("cookie", cookieHeader);
   }
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,

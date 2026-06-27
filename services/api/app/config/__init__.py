@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     cloudflare_turnstile_secret_key: str | None = None
     turnstile_required: bool = False
     turnstile_timeout_seconds: float = 5.0
+    chemvault_user_base_url: str = "https://user.chemvault.science"
+    chemvault_user_cookie_name: str = "chemvault_session"
+    chemvault_user_service_key: str = "chemvault_extract"
+    chemvault_user_require_service_access: bool = False
+    chemvault_user_timeout_seconds: float = 5.0
 
     ai_provider: str = "openai"
     openai_api_key: str | None = None

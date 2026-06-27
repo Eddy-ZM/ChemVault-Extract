@@ -8,12 +8,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
+from app.chemvault_user import authenticate_chemvault_session, sync_chemvault_user
 from app.database import get_db
 from app.models import User
 
@@ -60,20 +61,28 @@ def decode_access_token(token: str, settings: Settings | None = None) -> dict[st
 
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    if credentials is None or credentials.scheme.lower() != "bearer":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
-    try:
-        payload = decode_access_token(credentials.credentials)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+    if credentials is not None and credentials.scheme.lower() == "bearer":
+        try:
+            payload = decode_access_token(credentials.credentials)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
-    user = db.get(User, payload["sub"])
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found.")
-    return user
+        user = db.get(User, payload["sub"])
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found.")
+        return user
+
+    settings = get_settings()
+    session_token = request.cookies.get(settings.chemvault_user_cookie_name)
+    if session_token:
+        profile = authenticate_chemvault_session(session_token, settings)
+        return sync_chemvault_user(db, profile, settings)
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
 
 
 def get_current_admin_user(current_user: User = Depends(get_current_user)) -> User:

@@ -23,7 +23,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
   const token = request.cookies.get("chemvault_token")?.value;
-  if (token) {
+  const userCenterSession = request.cookies.get("chemvault_session")?.value;
+  if (token || userCenterSession) {
     return NextResponse.next();
   }
   const loginUrl = request.nextUrl.clone();
