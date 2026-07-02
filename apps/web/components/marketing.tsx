@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ const primaryLinks = [
   { href: "/use-cases", label: "Use cases" },
   { href: "/pricing", label: "Pricing" },
   { href: "/demo", label: "Demo" },
-  { href: "/docs", label: "Docs" },
+  { href: "https://docs.chemvault.science/manual/extract/", label: "Docs" },
 ];
 
 const moreLinks = [
@@ -33,17 +34,13 @@ export function PublicNav({ userEmail }: { userEmail?: string | null }) {
         </Link>
         <nav className="site-nav" aria-label="Main navigation">
           {primaryLinks.map((link) => (
-            <Link key={link.href} href={link.href}>
-              {link.label}
-            </Link>
+            <SmartLink key={link.href} href={link.href}>{link.label}</SmartLink>
           ))}
           <details className="nav-more">
             <summary>More</summary>
             <div className="nav-more-menu">
               {moreLinks.map((link) => (
-                <Link key={link.href} href={link.href}>
-                  {link.label}
-                </Link>
+                <SmartLink key={link.href} href={link.href}>{link.label}</SmartLink>
               ))}
             </div>
           </details>
@@ -109,7 +106,7 @@ export function PublicFooter() {
           <div className="footer-link-groups">
             <FooterGroup title="Product" links={[["Features", "/features"], ["Demo", "/demo"], ["Pricing", "/pricing"], ["Security", "/security"]]} />
             <FooterGroup title="Workflows" links={[["Upload", "/documents/upload"], ["Review", "/review"], ["Search", "/search"], ["Exports", "/exports"]]} />
-            <FooterGroup title="Developers" links={[["Docs", "/docs"], ["API", "/docs/api"], ["SDKs", "/docs/sdks"], ["Webhooks", "/docs/webhooks"]]} />
+            <FooterGroup title="Developers" links={[["Docs", "https://docs.chemvault.science/manual/extract/"], ["API", "/docs/api"], ["SDKs", "/docs/sdks"], ["Webhooks", "/docs/webhooks"]]} />
             <FooterGroup title="Account" links={[["Login", "/login"], ["Register", "/register"], ["Usage", "/usage"], ["Contact", "/contact"]]} />
           </div>
         </div>
@@ -130,11 +127,25 @@ function FooterGroup({ title, links }: { title: string; links: Array<[string, st
     <div className="footer-column">
       <span className="footer-heading">{title}</span>
       {links.map(([label, href]) => (
-        <Link key={href} href={href}>
-          {label}
-        </Link>
+        <SmartLink key={href} href={href}>{label}</SmartLink>
       ))}
     </div>
+  );
+}
+
+function SmartLink({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
+  if (/^https?:\/\//i.test(href)) {
+    return (
+      <a className={className} href={href} target="_blank" rel="noopener noreferrer">
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <Link className={className} href={href}>
+      {children}
+    </Link>
   );
 }
 
