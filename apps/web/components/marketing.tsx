@@ -15,6 +15,8 @@ const primaryLinks = [
 
 const moreLinks = [
   { href: "/security", label: "Security" },
+  { href: "https://chemvault.science/privacy", label: "Privacy" },
+  { href: "https://chemvault.science/terms", label: "Terms" },
   { href: "/developers", label: "Developers" },
   { href: "/contact", label: "Contact" },
 ];
@@ -108,6 +110,7 @@ export function PublicFooter() {
             <FooterGroup title="Workflows" links={[["Upload", "/documents/upload"], ["Review", "/review"], ["Search", "/search"], ["Exports", "/exports"]]} />
             <FooterGroup title="Developers" links={[["Docs", "https://docs.chemvault.science/manual/extract/"], ["API", "/docs/api"], ["SDKs", "/docs/sdks"], ["Webhooks", "/docs/webhooks"]]} />
             <FooterGroup title="Account" links={[["Login", "/login"], ["Register", "/register"], ["Usage", "/usage"], ["Contact", "/contact"]]} />
+            <FooterGroup title="Legal" links={[["Privacy Policy", "https://chemvault.science/privacy"], ["Terms of Service", "https://chemvault.science/terms"], ["Security / Abuse", "/security"], ["Forms", "https://forms.chemvault.science/"]]} />
           </div>
         </div>
         <div className="marketing-container footer-bottom">

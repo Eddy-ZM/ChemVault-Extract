@@ -57,7 +57,19 @@ export function BatchUploadForm({ projects }: { projects: Project[] }) {
           <CardTitle>Batch upload</CardTitle>
           <CardDescription>Each file creates a Document, parse job, and batch item.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="grid gap-5">
+          <Alert>
+            <AlertTitle>AI data handling notice</AlertTitle>
+            <AlertDescription>
+              AI features may process submitted text, files, or extracted content through third-party AI services. Do not submit
+              sensitive personal information, confidential data, or content you do not have permission to process. AI outputs may be
+              inaccurate and should be reviewed before use. See the{" "}
+              <Link className="underline" href="https://chemvault.science/privacy">
+                Privacy Policy
+              </Link>
+              .
+            </AlertDescription>
+          </Alert>
           <form className="grid gap-5" onSubmit={onSubmit}>
             <div className="grid gap-2">
               <Label htmlFor="batch-project">Project</Label>

@@ -337,8 +337,16 @@ function JobStatusCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <Alert>
-          <AlertTitle>AI extraction may incur OpenAI API costs.</AlertTitle>
-          <AlertDescription>Only selected chunks are sent, with references excluded and long chunks truncated.</AlertDescription>
+          <AlertTitle>AI extraction may process submitted content through third-party AI services.</AlertTitle>
+          <AlertDescription>
+            Do not submit sensitive personal information, confidential data, or content you do not have permission to process. AI
+            outputs may be inaccurate and should be reviewed before use. Only selected chunks are sent, with references excluded
+            and long chunks truncated. See the{" "}
+            <Link className="underline" href="https://chemvault.science/privacy">
+              Privacy Policy
+            </Link>
+            .
+          </AlertDescription>
         </Alert>
         {latestJob ? (
           <>

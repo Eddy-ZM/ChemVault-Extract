@@ -43,6 +43,17 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           <p className="text-sm text-muted-foreground">
             After authentication, you will return to ChemVault Extract with a shared ChemVault session.
           </p>
+          <p className="text-sm text-muted-foreground">
+            Use of ChemVault Extract is subject to the{" "}
+            <Link className="underline" href="https://chemvault.science/terms">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link className="underline" href="https://chemvault.science/privacy">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </CardContent>
       </Card>
     </div>
