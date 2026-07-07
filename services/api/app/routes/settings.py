@@ -22,6 +22,10 @@ def get_ai_settings(
 ) -> UserAiSettingsRead:
     settings = get_settings()
     record = get_or_create_user_ai_settings(db, current_user, settings)
+    active_provider = settings.ai_provider.strip().lower()
+    if active_provider != "openai":
+        record.provider = active_provider
+        record.use_own_api_key = False
     db.commit()
     db.refresh(record)
     return _settings_response(record)
@@ -35,8 +39,14 @@ def update_ai_settings(
 ) -> UserAiSettingsRead:
     settings = get_settings()
     record = get_or_create_user_ai_settings(db, current_user, settings)
+    active_provider = settings.ai_provider.strip().lower()
+    record.provider = active_provider
+    if active_provider != "openai":
+        record.use_own_api_key = False
 
     if payload.useOwnApiKey is not None:
+        if payload.useOwnApiKey and active_provider != "openai":
+            raise HTTPException(status_code=400, detail="User-provided keys are only enabled for the OpenAI provider.")
         if payload.useOwnApiKey and not settings.allow_user_openai_keys:
             raise HTTPException(status_code=400, detail="User OpenAI API keys are disabled.")
         if payload.useOwnApiKey and not get_effective_plan_limits(current_user).can_use_own_api_key:
@@ -44,6 +54,8 @@ def update_ai_settings(
         record.use_own_api_key = payload.useOwnApiKey
 
     if payload.openaiApiKey:
+        if active_provider != "openai":
+            raise HTTPException(status_code=400, detail="User-provided keys are only enabled for the OpenAI provider.")
         if not settings.allow_user_openai_keys:
             raise HTTPException(status_code=400, detail="User OpenAI API keys are disabled.")
         if not get_effective_plan_limits(current_user).can_use_own_api_key:
@@ -71,28 +83,36 @@ def test_openai_key(
     db: Session = Depends(get_db),
 ) -> OpenAiKeyTestResponse:
     settings = get_settings()
+    record = get_or_create_user_ai_settings(db, current_user, settings)
+    provider = settings.ai_provider.strip().lower()
     key = (payload.openaiApiKey or "").strip() if payload else ""
     if not key:
-        record = get_or_create_user_ai_settings(db, current_user, settings)
-        if not record.encrypted_openai_api_key:
-            raise HTTPException(status_code=400, detail="OpenAI API key is missing.")
-        try:
-            key = decrypt_secret(record.encrypted_openai_api_key, settings)
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if provider == "deepseek":
+            if not settings.deepseek_api_key:
+                raise HTTPException(status_code=400, detail="DeepSeek API key is missing.")
+            key = settings.deepseek_api_key
+        else:
+            if not record.encrypted_openai_api_key:
+                raise HTTPException(status_code=400, detail="OpenAI API key is missing.")
+            try:
+                key = decrypt_secret(record.encrypted_openai_api_key, settings)
+            except RuntimeError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    base_url = settings.deepseek_base_url.rstrip("/") if provider == "deepseek" else "https://api.openai.com/v1"
+    provider_label = "DeepSeek" if provider == "deepseek" else "OpenAI"
     try:
         response = httpx.get(
-            "https://api.openai.com/v1/models",
+            f"{base_url}/models",
             headers={"authorization": f"Bearer {key}"},
             timeout=10,
         )
     except httpx.RequestError:
-        return OpenAiKeyTestResponse(ok=False, message="OpenAI key test failed: network error.")
+        return OpenAiKeyTestResponse(ok=False, message=f"{provider_label} key test failed: network error.")
 
     if response.status_code == 200:
-        return OpenAiKeyTestResponse(ok=True, message="OpenAI key is valid.")
-    return OpenAiKeyTestResponse(ok=False, message=f"OpenAI key test failed with status {response.status_code}.")
+        return OpenAiKeyTestResponse(ok=True, message=f"{provider_label} key is valid.")
+    return OpenAiKeyTestResponse(ok=False, message=f"{provider_label} key test failed with status {response.status_code}.")
 
 
 @router.delete("/ai/openai-key", response_model=UserAiSettingsRead)
@@ -110,15 +130,29 @@ def delete_openai_key(
 
 def _settings_response(record) -> UserAiSettingsRead:
     settings = get_settings()
+    active_provider = settings.ai_provider.strip().lower()
+    response_provider = active_provider if active_provider != "openai" else record.provider
+    if record.provider == response_provider:
+        default_model = record.default_model
+        fallback_model = record.fallback_model
+    elif response_provider == "deepseek":
+        default_model = settings.deepseek_model
+        fallback_model = settings.deepseek_fallback_model
+    elif response_provider == "openai":
+        default_model = settings.openai_model
+        fallback_model = settings.openai_fallback_model
+    else:
+        default_model = record.default_model
+        fallback_model = record.fallback_model
     return UserAiSettingsRead.model_validate(
         {
-            "provider": record.provider,
+            "provider": response_provider,
             "use_own_api_key": record.use_own_api_key,
             "has_openai_api_key": bool(record.encrypted_openai_api_key),
             "masked_openai_api_key": masked_saved_openai_key(record, settings),
-            "default_model": record.default_model,
-            "fallback_model": record.fallback_model,
-            "allow_user_openai_keys": settings.allow_user_openai_keys,
+            "default_model": default_model,
+            "fallback_model": fallback_model,
+            "allow_user_openai_keys": settings.allow_user_openai_keys and response_provider == "openai",
             "created_at": record.created_at,
             "updated_at": record.updated_at,
         }

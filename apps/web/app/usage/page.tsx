@@ -51,9 +51,9 @@ export default async function UsagePage() {
               percent={storagePercent}
             />
             <div className="rounded-md border p-3 text-sm">
-              <div className="font-medium">Own OpenAI key usage</div>
+              <div className="font-medium">Own provider key usage</div>
               <p className="text-muted-foreground">
-                Estimated OpenAI cost paid directly by user key: ${usage.ownKeyEstimatedCostUsedUsd.toFixed(4)}. These files still count toward monthly file, document, project, and storage limits.
+                Estimated AI provider cost paid directly by user key: ${usage.ownKeyEstimatedCostUsedUsd.toFixed(4)}. These files still count toward monthly file, document, project, and storage limits.
               </p>
             </div>
             <div className="grid gap-2 text-sm md:grid-cols-3">

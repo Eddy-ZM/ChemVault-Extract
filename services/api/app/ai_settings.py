@@ -18,8 +18,8 @@ def get_or_create_user_ai_settings(db: Session, user: User, settings: Settings |
         user_id=user.id,
         provider=resolved.ai_provider,
         use_own_api_key=False,
-        default_model=resolved.openai_model,
-        fallback_model=resolved.openai_fallback_model,
+        default_model=resolved.deepseek_model if resolved.ai_provider == "deepseek" else resolved.openai_model,
+        fallback_model=resolved.deepseek_fallback_model if resolved.ai_provider == "deepseek" else resolved.openai_fallback_model,
     )
     db.add(record)
     db.flush()
@@ -36,11 +36,26 @@ def build_ai_settings_for_user(
     resolved = settings or get_settings()
     ai_settings = get_ai_settings(resolved)
     record = get_or_create_user_ai_settings(db, user, resolved)
-    ai_settings.provider = resolved.ai_provider if resolved.ai_provider != "openai" else (record.provider or ai_settings.provider)
-    ai_settings.default_model = record.default_model or ai_settings.default_model
-    ai_settings.fallback_model = record.fallback_model or ai_settings.fallback_model
+    configured_provider = resolved.ai_provider.strip().lower()
+    ai_settings.provider = configured_provider if configured_provider != "openai" else (record.provider or ai_settings.provider)
+    if record.provider == ai_settings.provider:
+        ai_settings.default_model = record.default_model or ai_settings.default_model
+        ai_settings.fallback_model = record.fallback_model or ai_settings.fallback_model
 
-    if not include_api_key or ai_settings.provider != "openai":
+    if not include_api_key:
+        ai_settings.openai_api_key = None
+        ai_settings.provider_api_key = None
+        return ai_settings
+
+    if ai_settings.provider == "deepseek":
+        if not resolved.deepseek_api_key:
+            raise RuntimeError("Platform DeepSeek API key is missing.")
+        ai_settings.provider_api_key = resolved.deepseek_api_key
+        ai_settings.openai_api_key = None
+        return ai_settings
+
+    if ai_settings.provider != "openai":
+        ai_settings.provider_api_key = None
         ai_settings.openai_api_key = None
         return ai_settings
 
@@ -52,6 +67,7 @@ def build_ai_settings_for_user(
         if not resolved.openai_api_key:
             raise RuntimeError("Platform OpenAI API key is missing.")
         ai_settings.openai_api_key = resolved.openai_api_key
+    ai_settings.provider_api_key = ai_settings.openai_api_key
     return ai_settings
 
 

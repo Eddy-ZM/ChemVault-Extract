@@ -55,7 +55,7 @@ export const docsPages: DocsPage[] = [
         id: "first-project",
         title: "First project",
         body: [
-          "Open Dashboard, create or use the default project, then upload a PDF, TXT, CSV, XLSX, Markdown, or DOCX file. DOCX parsing can return a clear not-implemented message until full support is added.",
+          "Open Dashboard, create or use the default project, then upload a PDF, TXT, CSV, XLSX, Markdown, or DOCX file. Text-based PDFs and office documents are parsed into reviewable pages, blocks, tables, and chunks.",
         ],
       },
     ],
@@ -285,7 +285,7 @@ const records = await client.documents.records("doc_123");`,
         title: "Events",
         body: [
           "Supported event types include document.uploaded, document.parsed, document.parse_failed, extraction.started, extraction.completed, extraction.failed, normalization.completed, normalization.failed, review.item_created, review.item_approved, review.item_rejected, export.completed, export.failed, batch.completed, batch.partial_failed, and batch.failed.",
-          "Webhook payloads include ids and resource URLs or summaries. They do not include OpenAI API keys, passwords, full file contents, or large extracted record payloads by default.",
+          "Webhook payloads include ids and resource URLs or summaries. They do not include AI provider API keys, passwords, full file contents, or large extracted record payloads by default.",
         ],
       },
       {

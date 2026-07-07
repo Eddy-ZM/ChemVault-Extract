@@ -33,7 +33,7 @@ const painPoints = [
 const workflow = [
   ["Upload documents", "Add papers, lab reports, CSV/XLSX instrument exports, TXT, Markdown, and DOCX files."],
   ["Parse pages, blocks, tables, and chunks", "The worker creates structured document objects that can be reviewed and reused."],
-  ["Extract chemicals, reactions, and measurements", "OpenAI structured outputs target scientific records from selected chunks only."],
+  ["Extract chemicals, reactions, and measurements", "The configured AI provider targets scientific records from selected chunks only."],
   ["Validate evidence and normalize data", "Quotes are checked against source chunks while units, roles, names, and measurements are normalized."],
   ["Human review", "Approve, edit, or reject every record before it becomes trusted research data."],
   ["Search and export database", "Filter evidence-backed records and export CSV, JSON, or XLSX datasets."],

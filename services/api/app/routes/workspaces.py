@@ -11,6 +11,7 @@ from app.billing.enforcement import assert_can_create_workspace, assert_can_invi
 from app.constants import UserPlan, WorkspaceMemberStatus, WorkspaceRole
 from app.database import get_db
 from app.models import Project, User, Workspace, WorkspaceMember
+from app.notifications import send_workspace_invite_notification
 from app.schemas import (
     ProjectRead,
     WorkspaceCreateRequest,
@@ -151,6 +152,7 @@ def invite_workspace_member(
         existing.invited_by_user_id = current_user.id
         db.commit()
         db.refresh(existing)
+        send_workspace_invite_notification(workspace=access.workspace, member=existing)
         return WorkspaceMemberRead.model_validate(existing)
 
     user = db.scalars(select(User).where(User.email == email)).first()
@@ -167,6 +169,7 @@ def invite_workspace_member(
     db.add(member)
     db.commit()
     db.refresh(member)
+    send_workspace_invite_notification(workspace=access.workspace, member=member)
     return WorkspaceMemberRead.model_validate(member)
 
 

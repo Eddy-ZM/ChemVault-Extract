@@ -13,12 +13,13 @@ import { Label } from "@/components/ui/label";
 export function AiSettingsForm({ initialSettings }: { initialSettings: UserAiSettings }) {
   const [settings, setSettings] = useState(initialSettings);
   const [useOwnApiKey, setUseOwnApiKey] = useState(initialSettings.useOwnApiKey);
-  const [openaiApiKey, setOpenaiApiKey] = useState("");
+  const [providerApiKey, setProviderApiKey] = useState("");
   const [defaultModel, setDefaultModel] = useState(initialSettings.defaultModel);
   const [fallbackModel, setFallbackModel] = useState(initialSettings.fallbackModel);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const providerName = settings.provider === "deepseek" ? "DeepSeek" : settings.provider === "openai" ? "OpenAI" : settings.provider;
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -31,7 +32,7 @@ export function AiSettingsForm({ initialSettings }: { initialSettings: UserAiSet
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           useOwnApiKey,
-          openaiApiKey: openaiApiKey.trim() || null,
+          openaiApiKey: providerApiKey.trim() || null,
           defaultModel,
           fallbackModel,
         }),
@@ -41,7 +42,7 @@ export function AiSettingsForm({ initialSettings }: { initialSettings: UserAiSet
         throw new Error(body.detail ?? "Unable to save AI settings");
       }
       setSettings(body as UserAiSettings);
-      setOpenaiApiKey("");
+      setProviderApiKey("");
       setMessage("AI settings saved.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save AI settings");
@@ -58,15 +59,15 @@ export function AiSettingsForm({ initialSettings }: { initialSettings: UserAiSet
       const response = await fetch("/api/settings/ai/test-openai-key", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ openaiApiKey: openaiApiKey.trim() || null }),
+        body: JSON.stringify({ openaiApiKey: providerApiKey.trim() || null }),
       });
       const body = await response.json();
       if (!response.ok) {
-        throw new Error(body.detail ?? "OpenAI key test failed");
+        throw new Error(body.detail ?? "Provider key test failed");
       }
-      setMessage(body.message ?? "OpenAI key test completed.");
+      setMessage(body.message ?? "Provider key test completed.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "OpenAI key test failed");
+      setError(err instanceof Error ? err.message : "Provider key test failed");
     } finally {
       setBusy(false);
     }
@@ -84,8 +85,8 @@ export function AiSettingsForm({ initialSettings }: { initialSettings: UserAiSet
       }
       setSettings(body as UserAiSettings);
       setUseOwnApiKey(false);
-      setOpenaiApiKey("");
-      setMessage("Saved OpenAI key deleted.");
+      setProviderApiKey("");
+      setMessage("Saved provider key deleted.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to delete key");
     } finally {
@@ -98,7 +99,7 @@ export function AiSettingsForm({ initialSettings }: { initialSettings: UserAiSet
       <Card>
         <CardHeader>
           <CardTitle>AI settings</CardTitle>
-          <CardDescription>Choose platform billing or your own OpenAI API key.</CardDescription>
+          <CardDescription>Choose platform billing or a supported user-provided provider key.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {error ? (
@@ -123,7 +124,7 @@ export function AiSettingsForm({ initialSettings }: { initialSettings: UserAiSet
                 disabled={!settings.allowUserOpenAiKeys || busy}
                 onChange={(event) => setUseOwnApiKey(event.target.checked)}
               />
-              <Label htmlFor="useOwnApiKey">Use my own OpenAI API key</Label>
+              <Label htmlFor="useOwnApiKey">Use my own provider API key</Label>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
@@ -136,14 +137,14 @@ export function AiSettingsForm({ initialSettings }: { initialSettings: UserAiSet
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="openaiApiKey">OpenAI API key</Label>
+              <Label htmlFor="openaiApiKey">{providerName} API key</Label>
               <Input
                 id="openaiApiKey"
                 type="password"
                 placeholder={settings.maskedOpenAiApiKey ?? "sk-..."}
-                value={openaiApiKey}
+                value={providerApiKey}
                 disabled={!settings.allowUserOpenAiKeys || busy}
-                onChange={(event) => setOpenaiApiKey(event.target.value)}
+                onChange={(event) => setProviderApiKey(event.target.value)}
               />
               <span className="text-xs text-muted-foreground">
                 Saved key: {settings.maskedOpenAiApiKey ?? "No user key saved"}
@@ -154,7 +155,7 @@ export function AiSettingsForm({ initialSettings }: { initialSettings: UserAiSet
                 <Save data-icon="inline-start" />
                 Save
               </Button>
-              <Button type="button" variant="outline" onClick={testKey} disabled={busy || (!openaiApiKey && !settings.hasOpenAiApiKey)}>
+              <Button type="button" variant="outline" onClick={testKey} disabled={busy || (!providerApiKey && !settings.hasOpenAiApiKey)}>
                 <TestTube2 data-icon="inline-start" />
                 Test key
               </Button>

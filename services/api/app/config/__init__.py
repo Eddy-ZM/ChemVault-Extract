@@ -54,10 +54,14 @@ class Settings(BaseSettings):
     chemvault_user_require_service_access: bool = False
     chemvault_user_timeout_seconds: float = 5.0
 
-    ai_provider: str = "openai"
+    ai_provider: str = "deepseek"
     openai_api_key: str | None = None
     openai_model: str = "gpt-5.4"
     openai_fallback_model: str = "gpt-5.5"
+    deepseek_api_key: str | None = None
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_model: str = "deepseek-v4-flash"
+    deepseek_fallback_model: str = "deepseek-v4-pro"
     ai_max_chunks_per_document: int = 20
     ai_max_chunk_chars: int = 6000
     ai_enable_fallback_model: bool = False
@@ -81,6 +85,14 @@ class Settings(BaseSettings):
     pubchem_base_url: str = "https://pubchem.ncbi.nlm.nih.gov"
     pubchem_timeout_seconds: float = 5.0
     pubchem_cache_ttl_seconds: int = 3600
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from_email: str | None = None
+    smtp_use_tls: bool = True
+    contact_notification_email: str | None = None
+    notification_timeout_seconds: float = 10.0
     enable_api_docs: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")

@@ -9,7 +9,7 @@ import { SectionHeader } from "@/components/product-ui";
 import { SubscribeButtons } from "./pricing-actions";
 
 export const metadata: Metadata = {
-  title: "Pricing — ChemVault Extract",
+  title: "Pricing - ChemVault Extract",
   description: "Plans for AI scientific data extraction, evidence-backed records, team workspaces, and batch extraction.",
 };
 
@@ -25,14 +25,14 @@ const plans = [
       "50 documents",
       "500 MB storage",
       "CSV / JSON export",
-      "Bring your own OpenAI key",
+      "Supported user key option",
     ],
     highlight: false,
   },
   {
     name: "Student",
     plan: "student",
-    price: "Placeholder",
+    price: "Contact us",
     description: "For thesis, coursework, and individual literature review workflows.",
     limits: [
       "100 AI extractions / month",
@@ -41,14 +41,14 @@ const plans = [
       "5 GB storage",
       "Structured extraction",
       "Export",
-      "Own API key support",
+      "Supported user key option",
     ],
     highlight: false,
   },
   {
     name: "Researcher",
     plan: "researcher",
-    price: "Placeholder",
+    price: "Contact us",
     description: "For active scientific extraction and repeated review workflows.",
     limits: [
       "500 AI extractions / month",
@@ -57,14 +57,14 @@ const plans = [
       "50 GB storage",
       "Batch extraction",
       "Advanced export",
-      "Own API key support",
+      "Supported user key option",
     ],
     highlight: true,
   },
   {
     name: "Lab",
     plan: "lab",
-    price: "Placeholder",
+    price: "Contact us",
     description: "For teams building shared evidence-backed scientific databases.",
     limits: [
       "3,000 AI extractions / month",
@@ -122,7 +122,7 @@ export default function PricingPage() {
 
       <Card className="mt-8 shadow-none">
         <CardContent className="p-5 text-sm leading-6 text-muted-foreground">
-          OpenAI API costs may apply depending on whether you use ChemVault hosted AI credits or your own OpenAI API key.
+          AI provider costs may apply depending on whether you use ChemVault hosted credits or a supported user-provided key.
           User-provided keys can reduce platform AI cost usage, but file, storage, project, workspace, and batch limits still apply.
         </CardContent>
       </Card>

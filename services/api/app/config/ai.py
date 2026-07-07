@@ -19,7 +19,7 @@ CHUNK_SECTION_PRIORITY = (
 )
 
 
-AI_COST_WARNING = "AI extraction may incur OpenAI API costs."
+AI_COST_WARNING = "AI extraction may incur AI provider API costs."
 
 MODEL_PRICING = {
     "gpt-4.1-mini": {
@@ -34,6 +34,14 @@ MODEL_PRICING = {
         "input_per_1m": 5.00,
         "output_per_1m": 30.00,
     },
+    "deepseek-v4-flash": {
+        "input_per_1m": 0.07,
+        "output_per_1m": 0.28,
+    },
+    "deepseek-v4-pro": {
+        "input_per_1m": 0.14,
+        "output_per_1m": 0.28,
+    },
 }
 
 
@@ -47,6 +55,8 @@ class AISettings:
     enable_fallback_model: bool
     estimated_input_token_ratio: float
     monthly_free_file_limit: int
+    base_url: str | None = None
+    provider_api_key: str | None = None
     openai_api_key: str | None = None
 
 
@@ -73,15 +83,28 @@ class CostEstimate:
 
 
 def get_ai_settings(settings: Settings) -> AISettings:
+    provider = settings.ai_provider.strip().lower()
+    if provider == "deepseek":
+        default_model = settings.deepseek_model
+        fallback_model = settings.deepseek_fallback_model
+        base_url = settings.deepseek_base_url
+        provider_api_key = settings.deepseek_api_key
+    else:
+        default_model = settings.openai_model
+        fallback_model = settings.openai_fallback_model
+        base_url = "https://api.openai.com"
+        provider_api_key = settings.openai_api_key
     return AISettings(
-        provider=settings.ai_provider,
-        default_model=settings.openai_model,
-        fallback_model=settings.openai_fallback_model,
+        provider=provider,
+        default_model=default_model,
+        fallback_model=fallback_model,
+        base_url=base_url,
         max_chunks_per_document=settings.ai_max_chunks_per_document,
         max_chunk_chars=settings.ai_max_chunk_chars,
         enable_fallback_model=settings.ai_enable_fallback_model,
         estimated_input_token_ratio=settings.ai_estimated_input_token_ratio,
         monthly_free_file_limit=settings.ai_monthly_free_file_limit,
+        provider_api_key=provider_api_key,
         openai_api_key=settings.openai_api_key,
     )
 
@@ -91,7 +114,7 @@ def estimate_tokens(text: str, ratio: float = 0.25) -> int:
 
 
 def estimate_ai_cost(*, input_tokens: int, output_tokens: int, model: str) -> dict:
-    pricing = MODEL_PRICING.get(model, MODEL_PRICING["gpt-4.1-mini"])
+    pricing = MODEL_PRICING.get(model, MODEL_PRICING["deepseek-v4-flash"])
     input_cost = (input_tokens / 1_000_000) * pricing["input_per_1m"]
     output_cost = (output_tokens / 1_000_000) * pricing["output_per_1m"]
     estimated_cost = input_cost + output_cost

@@ -153,7 +153,7 @@ ChemVault Extract supports user-facing AI settings for extraction workflows.
 Users can:
 
 - Use platform-managed extraction access when available.
-- Add their own OpenAI API key when enabled.
+- Add a supported user-provided AI provider key when enabled.
 - Test a saved key.
 - Remove a saved key.
 - See masked key status without exposing the full key after saving.

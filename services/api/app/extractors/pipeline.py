@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.ai_settings import build_ai_settings_for_job
 from app.config import Settings
 from app.config.ai import (
+    AISettings,
     estimate_ai_cost_for_chunks,
     estimate_cost_usd,
     select_chunks_for_ai,
@@ -18,7 +19,7 @@ from app.extractors.base import BaseStructuredExtractor, ExtractionResult
 from app.extractors.chemical_extractor import ChemicalEntityExtractor
 from app.extractors.metadata_extractor import MetadataExtractor
 from app.extractors.measurement_extractor import MeasurementExtractor
-from app.extractors.openai_client import OpenAIClientError, OpenAIStructuredOutputClient
+from app.extractors.openai_client import DeepSeekStructuredOutputClient, OpenAIClientError, OpenAIStructuredOutputClient
 from app.extractors.prompts import SYSTEM_PROMPT
 from app.extractors.reaction_extractor import ReactionExtractor
 from app.models import (
@@ -46,6 +47,8 @@ EXTRACTORS = (
     MeasurementExtractor,
 )
 
+LIVE_AI_PROVIDERS = {"openai", "deepseek"}
+
 
 def run_structured_extraction(db: Session, job: ExtractionJob, settings: Settings) -> None:
     chunks = db.scalars(
@@ -56,7 +59,7 @@ def run_structured_extraction(db: Session, job: ExtractionJob, settings: Setting
     ai_settings = build_ai_settings_for_job(db, job, settings, include_api_key=True)
     selected_chunks = select_chunks_for_ai(chunks, ai_settings)
     estimate = estimate_ai_cost_for_chunks(document_id=job.document_id, chunks=chunks, ai_settings=ai_settings)
-    model_name = ai_settings.default_model if ai_settings.provider == "openai" else "offline-no-provider"
+    model_name = ai_settings.default_model if ai_settings.provider in LIVE_AI_PROVIDERS else "offline-no-provider"
     per_run_input_tokens = int(estimate.estimated_input_tokens / len(EXTRACTORS)) if EXTRACTORS else 0
     per_run_output_tokens = int(estimate.estimated_output_tokens / len(EXTRACTORS)) if EXTRACTORS else 0
     per_run_cost = estimate_cost_usd(
@@ -67,7 +70,7 @@ def run_structured_extraction(db: Session, job: ExtractionJob, settings: Setting
 
     for extractor_class in EXTRACTORS:
         extractor = extractor_class(model_name=model_name)
-        if ai_settings.provider != "openai":
+        if ai_settings.provider not in LIVE_AI_PROVIDERS:
             result = extractor.skipped_result(
                 selected_chunks=selected_chunks,
                 provider=ai_settings.provider,
@@ -79,11 +82,12 @@ def run_structured_extraction(db: Session, job: ExtractionJob, settings: Setting
             _save_run(db, job, result)
             continue
 
-        if not ai_settings.openai_api_key:
-            raise RuntimeError("OPENAI_API_KEY is missing. Please configure it before running AI extraction.")
+        if not ai_settings.provider_api_key:
+            provider_name = ai_settings.provider.upper()
+            raise RuntimeError(f"{provider_name}_API_KEY is missing. Please configure it before running AI extraction.")
 
-        client = OpenAIStructuredOutputClient(ai_settings.openai_api_key)
-        result = _run_openai_extractor(
+        client = _structured_output_client(ai_settings)
+        result = _run_structured_extractor(
             extractor=extractor,
             client=client,
             model_name=ai_settings.default_model,
@@ -120,7 +124,7 @@ def run_structured_extraction(db: Session, job: ExtractionJob, settings: Setting
             output_tokens=fallback_output_tokens,
         )
         fallback_extractor = extractor_class(model_name=ai_settings.fallback_model)
-        fallback_result = _run_openai_extractor(
+        fallback_result = _run_structured_extractor(
             extractor=fallback_extractor,
             client=client,
             model_name=ai_settings.fallback_model,
@@ -210,7 +214,18 @@ def normalize_records_for_job(
 
 
 
-def _run_openai_extractor(
+def _structured_output_client(ai_settings: AISettings):
+    if not ai_settings.provider_api_key:
+        raise RuntimeError(f"{ai_settings.provider.upper()}_API_KEY is missing.")
+    if ai_settings.provider == "deepseek":
+        return DeepSeekStructuredOutputClient(
+            ai_settings.provider_api_key,
+            base_url=ai_settings.base_url or "https://api.deepseek.com",
+        )
+    return OpenAIStructuredOutputClient(ai_settings.provider_api_key)
+
+
+def _run_structured_extractor(
     *,
     extractor: BaseStructuredExtractor,
     client: OpenAIStructuredOutputClient,

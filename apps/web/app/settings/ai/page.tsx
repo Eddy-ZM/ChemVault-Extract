@@ -9,7 +9,7 @@ export default async function AiSettingsPage() {
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold tracking-normal">AI settings</h1>
-          <p className="text-sm text-muted-foreground">OpenAI model and API key configuration.</p>
+          <p className="text-sm text-muted-foreground">AI provider model and API key configuration.</p>
         </div>
         <AiSettingsForm initialSettings={settings} />
       </div>

@@ -69,9 +69,9 @@ export default async function ExportsPage() {
                       <TableCell>{formatDate(item.createdAt)}</TableCell>
                       <TableCell className="max-w-80 truncate font-mono text-xs text-muted-foreground">{item.storageKey ?? item.error ?? "Queued"}</TableCell>
                       <TableCell className="text-right">
-                        {item.storageKey ? (
+                        {item.downloadUrl ? (
                           <Button asChild size="sm" variant="outline">
-                            <Link href={item.storageKey}>
+                            <Link href={item.downloadUrl}>
                               <Download data-icon="inline-start" />
                               Download
                             </Link>

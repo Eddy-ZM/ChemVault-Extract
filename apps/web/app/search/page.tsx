@@ -46,11 +46,39 @@ export default async function SearchPage({
           <SearchFilters projects={projects} workspaces={workspaces} params={params} />
           <div className="grid gap-6">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge>{results.documents.length + results.chunks.length} results</Badge>
+              <Badge>{results.documents.length + results.chunks.length + (results.records?.length ?? 0)} results</Badge>
               <Badge variant="outline">Documents {results.documents.length}</Badge>
               <Badge variant="outline">Parsed chunks {results.chunks.length}</Badge>
+              <Badge variant="outline">Extracted records {results.records?.length ?? 0}</Badge>
               <Badge variant="secondary">Evidence preview</Badge>
             </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Extracted records</CardTitle>
+                <CardDescription>{results.records?.length ?? 0} matching chemical, reaction, or measurement records</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3">
+                {(results.records ?? []).map((record) => (
+                  <Link key={`${record.recordType}-${record.id}`} href={`/documents/${record.documentId}/review`} className="rounded-md border bg-white p-4 hover:bg-accent">
+                    <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                      <Badge variant="outline">{record.recordType.replace("_", " ")}</Badge>
+                      {record.reviewStatus ? <Badge variant="secondary">{record.reviewStatus}</Badge> : null}
+                      {record.validationStatus ? <Badge variant="outline">{record.validationStatus}</Badge> : null}
+                      {typeof record.confidence === "number" ? <span className="text-muted-foreground">confidence {Math.round(record.confidence * 100)}%</span> : null}
+                    </div>
+                    <div className="mt-3 font-medium">{record.label}</div>
+                    {record.preview ? (
+                      <p className="mt-2 line-clamp-3 border-l-4 border-emerald-300 pl-3 text-sm leading-6 text-muted-foreground">
+                        {record.preview}
+                      </p>
+                    ) : null}
+                  </Link>
+                ))}
+                {(results.records?.length ?? 0) === 0 ? (
+                  <EmptyState title="No extracted records matched" description="Approved and pending extracted records appear here after AI extraction and normalization." />
+                ) : null}
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle>Documents</CardTitle>
@@ -177,7 +205,7 @@ function SearchFilters({
             <div className="grid gap-2 text-sm">
               <div className="flex items-center gap-2 rounded-md border p-2"><FileText className="size-4" /> Documents</div>
               <div className="flex items-center gap-2 rounded-md border p-2"><Table2 className="size-4" /> Parsed chunks</div>
-              <div className="flex items-center gap-2 rounded-md border p-2 text-muted-foreground"><SearchIcon className="size-4" /> Extracted records next</div>
+              <div className="flex items-center gap-2 rounded-md border p-2"><SearchIcon className="size-4" /> Extracted records</div>
             </div>
           </div>
           <button className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground" type="submit">

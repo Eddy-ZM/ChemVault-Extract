@@ -35,7 +35,7 @@ export function MembersClient({ workspace }: { workspace: WorkspaceDetail }) {
       const body = await response.json();
       if (!response.ok) throw new Error(body.detail ?? "Invite failed");
       setEmail("");
-      setMessage(`Invite created for ${body.invitedEmail}. Token: ${body.inviteToken}`);
+      setMessage(`Invite created for ${body.invitedEmail}. Email is sent when SMTP is configured. Token: ${body.inviteToken}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invite failed");
@@ -75,7 +75,7 @@ export function MembersClient({ workspace }: { workspace: WorkspaceDetail }) {
       <Card>
         <CardHeader>
           <CardTitle>Invite member</CardTitle>
-          <CardDescription>Invites are stored in the API. Email delivery is intentionally not implemented yet.</CardDescription>
+          <CardDescription>Invites are stored in the API. Email is sent automatically when SMTP is configured.</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="grid gap-4" onSubmit={invite}>

@@ -92,13 +92,17 @@ def _table_text(columns: list[str], rows: list[dict], csv_text: str, *, title: s
     return "\n".join(lines).strip()
 
 
+def _normalize_csv_text(value: str) -> str:
+    return value.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def parse_csv_file(file_path: str) -> ParsedDocument:
     path = Path(file_path)
     try:
         import pandas as pd  # type: ignore
 
         df = pd.read_csv(path)
-        csv_text = df.to_csv(index=False)
+        csv_text = _normalize_csv_text(df.to_csv(index=False))
         html = df.to_html(index=False)
         columns = [str(column) for column in df.columns]
         rows = _records_from_dataframe(df)
@@ -107,7 +111,7 @@ def parse_csv_file(file_path: str) -> ParsedDocument:
             raw_rows = list(csv.reader(file))
         headers = raw_rows[0] if raw_rows else []
         data_rows = raw_rows[1:] if len(raw_rows) > 1 else []
-        csv_text = path.read_text(encoding="utf-8", errors="replace")
+        csv_text = _normalize_csv_text(path.read_text(encoding="utf-8", errors="replace"))
         html = _table_html(headers, data_rows)
         columns = headers
         rows = _records_from_rows(headers, data_rows)
@@ -149,7 +153,7 @@ def parse_xlsx_file(file_path: str) -> ParsedDocument:
             sheet_items.append(
                 (
                     sheet_name,
-                    df.to_csv(index=False),
+                    _normalize_csv_text(df.to_csv(index=False)),
                     df.to_html(index=False),
                     [str(column) for column in df.columns],
                     _records_from_dataframe(df),
@@ -168,7 +172,7 @@ def parse_xlsx_file(file_path: str) -> ParsedDocument:
             if headers:
                 csv_lines.append(",".join(headers))
             csv_lines.extend(",".join(str(value) for value in row) for row in rows)
-            csv_text = "\n".join(csv_lines) + ("\n" if csv_lines else "")
+            csv_text = _normalize_csv_text("\n".join(csv_lines) + ("\n" if csv_lines else ""))
             sheet_items.append(
                 (
                     worksheet.title,

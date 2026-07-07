@@ -94,18 +94,18 @@ def get_current_admin_user(current_user: User = Depends(get_current_user)) -> Us
 def encrypt_secret(value: str, settings: Settings | None = None) -> str:
     resolved = settings or get_settings()
     if not resolved.app_encryption_key:
-        raise RuntimeError("APP_ENCRYPTION_KEY is missing. User OpenAI API keys cannot be saved.")
+        raise RuntimeError("APP_ENCRYPTION_KEY is missing. User provider API keys cannot be saved.")
     return _fernet(resolved.app_encryption_key).encrypt(value.encode("utf-8")).decode("utf-8")
 
 
 def decrypt_secret(value: str, settings: Settings | None = None) -> str:
     resolved = settings or get_settings()
     if not resolved.app_encryption_key:
-        raise RuntimeError("APP_ENCRYPTION_KEY is missing. User OpenAI API keys cannot be read.")
+        raise RuntimeError("APP_ENCRYPTION_KEY is missing. User provider API keys cannot be read.")
     try:
         return _fernet(resolved.app_encryption_key).decrypt(value.encode("utf-8")).decode("utf-8")
     except InvalidToken as exc:
-        raise RuntimeError("Stored OpenAI API key could not be decrypted.") from exc
+        raise RuntimeError("Stored provider API key could not be decrypted.") from exc
 
 
 def mask_secret(value: str | None) -> str | None:

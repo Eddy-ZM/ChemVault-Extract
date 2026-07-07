@@ -58,7 +58,12 @@ def enforce_rate_limit(actor: Any, _: Session) -> None:
 def _increment_redis(minute_key: str, day_key: str) -> tuple[int, int]:
     global _redis_client
     if _redis_client is None:
-        _redis_client = redis.from_url(get_settings().redis_url, decode_responses=True)
+        _redis_client = redis.from_url(
+            get_settings().redis_url,
+            decode_responses=True,
+            socket_connect_timeout=0.1,
+            socket_timeout=0.1,
+        )
     pipe = _redis_client.pipeline()
     pipe.incr(minute_key)
     pipe.expire(minute_key, 90)

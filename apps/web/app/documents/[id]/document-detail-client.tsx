@@ -82,7 +82,7 @@ export function DocumentDetailClient({ initialDocument }: { initialDocument: Doc
 
   const startAiExtraction = useCallback(async () => {
     const confirmed = window.confirm(
-      "This will send selected document chunks to OpenAI for structured extraction and may incur API costs. Continue?",
+      "This will send selected document chunks to the configured AI provider for structured extraction and may incur API costs. Continue?",
     );
     if (!confirmed) return;
     setStartingExtraction(true);
@@ -525,7 +525,7 @@ function ChunksPanel({ chunks }: { chunks: DocumentChunk[] }) {
     <Card>
       <CardHeader>
         <CardTitle>Chunks</CardTitle>
-        <CardDescription>{chunks.length} section-based chunks prepared for future AI extraction</CardDescription>
+        <CardDescription>{chunks.length} section-based chunks available for AI extraction</CardDescription>
       </CardHeader>
       <CardContent>
         {chunks.length === 0 ? (

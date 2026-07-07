@@ -122,7 +122,7 @@ def _document_chunks_for_ai(db: Session, document_id: str) -> list[DocumentChunk
 
 def _empty_ai_cost_estimate(document_id: str, settings: Settings, ai_settings=None) -> AICostEstimateRead:
     ai_settings = ai_settings or get_ai_settings(settings)
-    warning = f"{AI_COST_WARNING} Parse has not completed; this is a placeholder estimate."
+    warning = f"{AI_COST_WARNING} Parse has not completed; this is a pre-parse estimate."
     model_name = ai_settings.default_model
     return AICostEstimateRead.model_validate(
         {

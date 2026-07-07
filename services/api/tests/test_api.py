@@ -19,9 +19,11 @@ from app.models import (
     BatchJob,
     BatchJobItem,
     BillingEvent,
+    ChemicalEntity,
     ContactMessage,
     Subscription,
     User,
+    ReviewItem,
 )
 
 
@@ -412,6 +414,84 @@ def test_public_contact_message_is_saved(api_client):
         message = db.get(ContactMessage, body["id"])
         assert message is not None
         assert message.message == "We want to digitize lab reports."
+
+
+def test_export_generates_csv_file_for_approved_records(api_client, fake_storage):
+    upload = api_client.post(
+        "/documents/upload",
+        files={"file": ("export.txt", io.BytesIO(b"Aspirin was measured."), "text/plain")},
+    ).json()
+    document_id = upload["document"]["id"]
+    project_id = upload["document"]["projectId"]
+    with SessionLocal() as db:
+        record = ChemicalEntity(
+            document_id=document_id,
+            raw_name="Aspirin",
+            name="Aspirin",
+            normalized_name="aspirin",
+            evidence={"quote": "Aspirin was measured."},
+            confidence=0.9,
+        )
+        db.add(record)
+        db.flush()
+        db.add(
+            ReviewItem(
+                document_id=document_id,
+                record_type="chemical_entity",
+                record_id=record.id,
+                status="approved",
+                extracted_data={"name": "Aspirin"},
+            )
+        )
+        db.commit()
+
+    response = api_client.post("/exports", json={"projectId": project_id, "exportFormat": "csv"})
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "completed"
+    assert body["storageKey"].endswith("chemvault-export.csv")
+    assert body["downloadUrl"] == body["storageKey"]
+    assert fake_storage.saved[-1]["content_type"] == "text/csv"
+    assert b"chemical_entity" in fake_storage.saved[-1]["content"]
+    assert b"Aspirin" in fake_storage.saved[-1]["content"]
+
+
+def test_search_returns_extracted_records(api_client):
+    upload = api_client.post(
+        "/documents/upload",
+        files={"file": ("search.txt", io.BytesIO(b"Aspirin was measured."), "text/plain")},
+    ).json()
+    document_id = upload["document"]["id"]
+    with SessionLocal() as db:
+        record = ChemicalEntity(
+            document_id=document_id,
+            raw_name="Aspirin",
+            name="Aspirin",
+            normalized_name="aspirin",
+            evidence={"quote": "Aspirin was measured."},
+            confidence=0.9,
+        )
+        db.add(record)
+        db.flush()
+        db.add(
+            ReviewItem(
+                document_id=document_id,
+                record_type="chemical_entity",
+                record_id=record.id,
+                status="approved",
+                extracted_data={"name": "Aspirin"},
+            )
+        )
+        db.commit()
+
+    response = api_client.get("/search?q=aspirin")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["records"][0]["recordType"] == "chemical_entity"
+    assert body["records"][0]["label"] == "aspirin"
+    assert body["records"][0]["preview"] == "Aspirin was measured."
 
 
 def test_api_key_creation_hashes_key_and_allows_v1_projects(api_client):

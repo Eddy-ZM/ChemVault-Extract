@@ -486,6 +486,7 @@ class ExportJobRead(ApiModel):
     status: str
     export_format: str = Field(serialization_alias="exportFormat")
     storage_key: str | None = Field(default=None, serialization_alias="storageKey")
+    download_url: str | None = Field(default=None, serialization_alias="downloadUrl")
     error: str | None = None
     created_at: datetime = Field(serialization_alias="createdAt")
     updated_at: datetime = Field(serialization_alias="updatedAt")

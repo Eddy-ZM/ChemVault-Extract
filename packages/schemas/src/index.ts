@@ -355,6 +355,17 @@ export interface SearchResponse {
     pageEnd: number | null;
     text: string;
   }>;
+  records: Array<{
+    id: string;
+    documentId: string;
+    recordType: string;
+    label: string;
+    reviewStatus: string | null;
+    validationStatus: string | null;
+    confidence: number | null;
+    evidence: Evidence | null;
+    preview: string;
+  }>;
 }
 
 export interface NormalizationRequest {
@@ -431,6 +442,7 @@ export interface ExportJob {
   status: string;
   exportFormat: string;
   storageKey: string | null;
+  downloadUrl: string | null;
   error: string | null;
   createdAt: string;
   updatedAt: string;

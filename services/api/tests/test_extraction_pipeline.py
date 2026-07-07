@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from app.config import get_settings
 from app.database import SessionLocal
-from app.extractors.openai_client import OpenAIStructuredOutputClient
+from app.extractors.openai_client import DeepSeekStructuredOutputClient, OpenAIStructuredOutputClient
 from app.models import (
     AiUsageRecord,
     ChemicalEntity,
@@ -47,7 +47,7 @@ def test_extract_ai_endpoint_accepts_unparsed_document(api_client, fake_storage,
     assert body["job"]["status"] == "queued"
     assert body["estimatedCost"]["selectedChunks"] == 0
     assert body["estimatedCost"]["estimatedCostUsd"] == 0.0
-    assert body["estimatedCost"]["warning"].startswith("AI extraction may incur OpenAI API costs.")
+    assert body["estimatedCost"]["warning"].startswith("AI extraction may incur AI provider API costs.")
     assert fake_queue.pushed[-1] == body["job"]["id"]
 
 
@@ -87,7 +87,7 @@ def test_extract_ai_endpoint_creates_openai_job_when_key_is_configured(
     assert body["job"]["jobType"] == "ai_extraction"
     assert body["job"]["status"] == "queued"
     assert body["estimatedCost"]["model"] == "gpt-5.4"
-    assert body["estimatedCost"]["warning"] == "AI extraction may incur OpenAI API costs."
+    assert body["estimatedCost"]["warning"] == "AI extraction may incur AI provider API costs."
     assert fake_queue.pushed[-1] == body["job"]["id"]
 
 
@@ -119,7 +119,7 @@ def test_estimate_ai_cost_returns_selected_chunks_and_model(api_client, fake_sto
     assert body["estimatedOutputTokens"] > 0
     assert body["model"] == "gpt-5.4"
     assert body["estimatedCostUsd"] > 0
-    assert body["warning"] == "AI extraction may incur OpenAI API costs."
+    assert body["warning"] == "AI extraction may incur AI provider API costs."
 
 
 def test_extract_ai_endpoint_enforces_monthly_limit(api_client, fake_storage, monkeypatch):
@@ -264,6 +264,50 @@ def test_worker_openai_mode_records_cost_fields_without_sending_full_document(
     assert all(run.output_tokens_estimated > 0 for run in extractor_runs)
     assert all(run.estimated_cost_usd > 0 for run in extractor_runs)
     assert all(run.selected_chunk_ids for run in extractor_runs)
+
+
+def test_worker_deepseek_mode_uses_configured_provider(
+    api_client,
+    fake_storage,
+    monkeypatch,
+):
+    monkeypatch.setenv("AI_PROVIDER", "deepseek")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    get_settings.cache_clear()
+
+    def fake_structured_output(self, **kwargs):
+        assert kwargs["model"] == "deepseek-v4-flash"
+        assert "Selected chunks:" in kwargs["user_prompt"]
+        return {"id": "deepseek_test"}, {"items": []}
+
+    monkeypatch.setattr(DeepSeekStructuredOutputClient, "create_structured_output", fake_structured_output)
+    upload = api_client.post(
+        "/documents/upload",
+        files={
+            "file": (
+                "paper.md",
+                io.BytesIO(
+                    b"# Abstract\nA sample paper.\n\n"
+                    b"## Experimental\nThe product was obtained as a white solid in 82% yield."
+                ),
+                "text/markdown",
+            )
+        },
+    ).json()
+    process_job(upload["job"]["id"], storage=fake_storage, step_delay_seconds=0)
+    ai_job = api_client.post(f"/documents/{upload['document']['id']}/extract-ai").json()["job"]
+
+    process_job(ai_job["id"], storage=fake_storage, step_delay_seconds=0)
+
+    with SessionLocal() as db:
+        runs = db.scalars(
+            select(ExtractionRun).where(ExtractionRun.job_id == ai_job["id"]).order_by(ExtractionRun.created_at)
+        ).all()
+        extractor_runs = [run for run in runs if run.extractor_type]
+
+    assert {run.status for run in extractor_runs} == {"completed"}
+    assert all(run.provider == "deepseek" for run in extractor_runs)
+    assert all(run.model_name == "deepseek-v4-flash" for run in extractor_runs)
 
 
 def test_review_items_can_be_listed_and_updated(api_client):

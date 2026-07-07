@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import ContactMessage
+from app.notifications import send_contact_notification
 from app.schemas import ContactMessageCreateRequest, ContactMessageRead
 
 router = APIRouter(prefix="/contact", tags=["contact"])
@@ -35,4 +36,5 @@ def create_contact_message(
     db.add(contact_message)
     db.commit()
     db.refresh(contact_message)
+    send_contact_notification(message=contact_message)
     return ContactMessageRead.model_validate(contact_message)

@@ -113,9 +113,18 @@ def _persist_parsed_document(db: Session, job: ExtractionJob, parsed: ParsedDocu
 
 def _parse_job_document(db: Session, job: ExtractionJob, storage_client: S3Storage, max_chunk_words: int) -> None:
     suffix = Path(job.document.filename).suffix or f".{job.document.file_type}"
-    with tempfile.NamedTemporaryFile(suffix=suffix) as temp_file:
-        storage_client.download_file(job.document.storage_key, temp_file.name)
-        parsed = parse_document(temp_file.name, job.document.mime_type)
+    temp_path: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp_file:
+            temp_path = temp_file.name
+        storage_client.download_file(job.document.storage_key, temp_path)
+        parsed = parse_document(temp_path, job.document.mime_type)
+    finally:
+        if temp_path:
+            try:
+                Path(temp_path).unlink()
+            except OSError:
+                pass
     if parsed.errors:
         raise RuntimeError("; ".join(parsed.errors))
     _persist_parsed_document(db, job, parsed, max_chunk_words)

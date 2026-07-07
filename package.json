@@ -13,6 +13,10 @@
   "scripts": {
     "dev": "npm run dev -w apps/web",
     "build": "npm run build -w apps/web",
+    "test": "npm run test:api && npm run test:js-sdk && npm run test:python-sdk",
+    "test:api": "cd services/api && .\\.venv\\Scripts\\python.exe -m pytest tests -q",
+    "test:js-sdk": "npm test -w packages/js-sdk",
+    "test:python-sdk": "cd packages/python-sdk && ..\\..\\services\\api\\.venv\\Scripts\\python.exe -m pytest tests -q",
     "start": "npm run start -w apps/web",
     "deploy:web": "npm run deploy:cloudflare -w apps/web",
     "deploy:api-gateway": "npm run deploy -w @chemvault/api-gateway-worker",

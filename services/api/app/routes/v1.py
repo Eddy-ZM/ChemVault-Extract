@@ -19,6 +19,7 @@ from app.developer_auth import (
     require_scope,
 )
 from app.document_upload import create_uploaded_document, file_size_bytes
+from app.exports import create_download_url, run_export_job
 from app.models import (
     ChemicalEntity,
     Document,
@@ -477,6 +478,8 @@ def v1_create_export(
     payload: ExportJobCreateRequest,
     actor: ApiActor = Depends(require_scope("exports:write")),
     db: Session = Depends(get_db),
+    storage: S3Storage = Depends(get_storage),
+    webhook_queue: WebhookDeliveryQueue = Depends(get_webhook_delivery_queue),
 ) -> ExportJobRead:
     access = require_project_scope_and_permission(
         db,
@@ -488,15 +491,18 @@ def v1_create_export(
     assert_can_export(db, access.billing_user)
     job = ExportJob(project_id=access.project.id, export_format=payload.export_format.strip() or "json")
     db.add(job)
+    db.flush()
+    run_export_job(db, storage, job, webhook_queue=webhook_queue)
     db.commit()
     db.refresh(job)
-    return ExportJobRead.model_validate(job)
+    return _export_job_response(job, storage)
 
 
 @router.get("/exports", response_model=list[ExportJobRead], tags=["v1-exports"], description="List export jobs.")
 def v1_list_exports(
     actor: ApiActor = Depends(require_scope("exports:read")),
     db: Session = Depends(get_db),
+    storage: S3Storage = Depends(get_storage),
 ) -> list[ExportJobRead]:
     jobs = db.scalars(
         select(ExportJob)
@@ -505,7 +511,7 @@ def v1_list_exports(
         .order_by(ExportJob.created_at.desc(), ExportJob.id.desc())
         .limit(50)
     ).all()
-    return [ExportJobRead.model_validate(job) for job in jobs]
+    return [_export_job_response(job, storage) for job in jobs]
 
 
 @router.get("/exports/{export_id}", response_model=ExportJobRead, tags=["v1-exports"], description="Get an export job.")
@@ -513,9 +519,10 @@ def v1_get_export(
     export_id: str,
     actor: ApiActor = Depends(require_scope("exports:read")),
     db: Session = Depends(get_db),
+    storage: S3Storage = Depends(get_storage),
 ) -> ExportJobRead:
     job = _get_accessible_export(db, actor, export_id)
-    return ExportJobRead.model_validate(job)
+    return _export_job_response(job, storage)
 
 
 @router.get(
@@ -527,11 +534,17 @@ def v1_download_export(
     export_id: str,
     actor: ApiActor = Depends(require_scope("exports:read")),
     db: Session = Depends(get_db),
+    storage: S3Storage = Depends(get_storage),
 ) -> dict:
     job = _get_accessible_export(db, actor, export_id)
     if not job.storage_key:
         raise _api_error(status.HTTP_404_NOT_FOUND, "not_found", "Export file is not ready for download.")
-    return {"export_id": job.id, "status": job.status, "storage_key": job.storage_key}
+    return {
+        "export_id": job.id,
+        "status": job.status,
+        "storage_key": job.storage_key,
+        "download_url": create_download_url(storage, job.storage_key),
+    }
 
 
 @router.get("/usage", response_model=CurrentMonthUsageRead, tags=["v1-usage"], description="Get current-month usage.")
@@ -664,6 +677,12 @@ def _get_accessible_export(db: Session, actor: ApiActor, export_id: str) -> Expo
         permission=Permission.EXPORT,
     )
     return job
+
+
+def _export_job_response(job: ExportJob, storage: S3Storage) -> ExportJobRead:
+    return ExportJobRead.model_validate(job).model_copy(
+        update={"download_url": create_download_url(storage, job.storage_key)}
+    )
 
 
 def _api_error(status_code: int, code: str, message: str, details: dict | None = None) -> HTTPException:

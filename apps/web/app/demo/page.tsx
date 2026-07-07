@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { SectionHeader } from "@/components/product-ui";
 
 export const metadata: Metadata = {
-  title: "Demo — ChemVault Extract",
+  title: "Demo - ChemVault Extract",
   description: "See a sample ChemVault Extract workflow with clearly labelled sample data.",
 };
 
@@ -35,7 +35,7 @@ export default function DemoPage() {
               <FileUp className="size-5" />
               1. Upload sample paper
             </CardTitle>
-            <CardDescription>Sample input: `sample_paper_like.txt` with abstract, experimental section, results, and table text.</CardDescription>
+            <CardDescription>Sample input: sample_paper_like.txt with abstract, experimental section, results, and table text.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
             {["Abstract", "Experimental", "Results", "Tables"].map((section, index) => (
@@ -78,7 +78,7 @@ export default function DemoPage() {
               <DemoField label="Normalized temperature" value="room temperature" />
             </div>
             <blockquote className="rounded-md border-l-4 border-blue-400 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
-              “The product was obtained as a white solid in 82% yield.”
+              "The product was obtained as a white solid in 82% yield."
             </blockquote>
             <div className="flex flex-wrap gap-2">
               <Button size="sm">
@@ -109,7 +109,7 @@ export default function DemoPage() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="font-medium">Reaction record</div>
-                  <div className="text-sm text-muted-foreground">Experimental · page 4</div>
+                  <div className="text-sm text-muted-foreground">Experimental - page 4</div>
                 </div>
                 <Badge>evidence linked</Badge>
               </div>

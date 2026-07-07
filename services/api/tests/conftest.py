@@ -12,6 +12,7 @@ os.environ["S3_SECRET_KEY"] = "test"
 os.environ["S3_BUCKET"] = "test-bucket"
 os.environ["STORAGE_PROVIDER"] = "minio"
 os.environ["QUEUE_PROVIDER"] = "redis"
+os.environ["AI_PROVIDER"] = "openai"
 os.environ["JWT_SECRET"] = "test-jwt-secret"
 os.environ["APP_ENCRYPTION_KEY"] = "test-encryption-key"
 os.environ["INTERNAL_WORKER_TOKEN"] = "test-internal-token"
@@ -28,6 +29,7 @@ from app.database import Base, engine, get_db  # noqa: E402
 from app.dependencies import get_queue, get_storage, get_webhook_delivery_queue  # noqa: E402
 from app.main import app  # noqa: E402
 from app.config import get_settings  # noqa: E402
+from app import rate_limit  # noqa: E402
 
 
 class FakeStorage:
@@ -90,6 +92,7 @@ def api_client(
     fake_webhook_queue: FakeWebhookQueue,
 ) -> Generator[TestClient, None, None]:
     get_settings.cache_clear()
+    _reset_rate_limit_state()
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     app.dependency_overrides[get_storage] = lambda: fake_storage
@@ -104,4 +107,10 @@ def api_client(
         client.headers.update({"authorization": f"Bearer {token}"})
         yield client
     app.dependency_overrides.clear()
+    _reset_rate_limit_state()
     get_settings.cache_clear()
+
+
+def _reset_rate_limit_state() -> None:
+    rate_limit._fallback_counts.clear()
+    rate_limit._redis_client = None

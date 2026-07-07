@@ -14,7 +14,7 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>AI extraction</CardTitle>
-            <CardDescription>Manage OpenAI model settings and API key mode.</CardDescription>
+            <CardDescription>Manage AI provider model settings and API key mode.</CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild>
@@ -36,7 +36,7 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Webhooks</CardTitle>
-            <CardDescription>Configure delivery endpoints for future workflow events.</CardDescription>
+            <CardDescription>Configure signed delivery endpoints for workflow events.</CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild variant="outline">
