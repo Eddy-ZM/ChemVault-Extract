@@ -48,5 +48,6 @@ AuthKey_*.p8
 node_modules/
 dist/
 build/
+*.tsbuildinfo
 .wrangler/
 .DS_Store

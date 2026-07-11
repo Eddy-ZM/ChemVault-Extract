@@ -122,6 +122,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen bg-background">
         <PublicNav userEmail={user?.email} />
+        <ProductTransitionNotice />
         <main>{children}</main>
         <PublicFooter />
       </div>
@@ -194,9 +195,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               )}
             </div>
           </header>
+          <ProductTransitionNotice />
           <main className="flex-1 px-4 py-6 lg:px-8">{children}</main>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ProductTransitionNotice() {
+  const productMode = process.env.NEXT_PUBLIC_PRODUCT_MODE || "sunset";
+  if (productMode !== "sunset") return null;
+
+  return (
+    <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-950">
+      Extract is in maintenance mode. New laboratory analysis workflows are moving to{" "}
+      <a
+        className="font-semibold underline underline-offset-2"
+        href={process.env.NEXT_PUBLIC_CHEMVAULT_LAB_URL || "https://lab.chemvault.science"}
+      >
+        ChemVault Lab
+      </a>
+      . Existing data and exports remain available during migration.
     </div>
   );
 }

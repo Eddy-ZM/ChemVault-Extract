@@ -68,6 +68,36 @@ app.add_middleware(
 
 
 @app.middleware("http")
+async def sunset_read_only_middleware(request: Request, call_next):
+    unsafe_method = request.method.upper() not in {"GET", "HEAD", "OPTIONS"}
+    allowed_mutation_prefixes = (
+        "/internal/lifecycle/",
+        "/internal/sunset/",
+        "/webhooks/",
+        "/exports",
+        "/auth/logout",
+    )
+    if settings.read_only_mode and unsafe_method and not request.url.path.startswith(allowed_mutation_prefixes):
+        return JSONResponse(
+            status_code=410,
+            content={
+                "error": {
+                    "code": "product_read_only",
+                    "message": "ChemVault Extract is read-only. Start new analysis work in ChemVault Lab.",
+                    "details": {"successor": settings.sunset_successor_url},
+                }
+            },
+            headers=_sunset_headers(),
+        )
+
+    response = await call_next(request)
+    if settings.read_only_mode:
+        for key, value in _sunset_headers().items():
+            response.headers[key] = value
+    return response
+
+
+@app.middleware("http")
 async def api_request_log_middleware(request: Request, call_next):
     if not request.url.path.startswith("/v1"):
         return await call_next(request)
@@ -191,3 +221,11 @@ def _code_for_status(status_code: int) -> str:
     if status_code == 429:
         return "rate_limit_exceeded"
     return "invalid_request"
+
+
+def _sunset_headers() -> dict[str, str]:
+    return {
+        "Deprecation": "true",
+        "Sunset": settings.sunset_at,
+        "Link": f'<{settings.sunset_successor_url}>; rel="successor-version"',
+    }

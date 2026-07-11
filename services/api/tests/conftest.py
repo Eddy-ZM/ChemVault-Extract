@@ -16,6 +16,7 @@ os.environ["AI_PROVIDER"] = "openai"
 os.environ["JWT_SECRET"] = "test-jwt-secret"
 os.environ["APP_ENCRYPTION_KEY"] = "test-encryption-key"
 os.environ["INTERNAL_WORKER_TOKEN"] = "test-internal-token"
+os.environ["LIFECYCLE_SERVICE_SECRET"] = "test-lifecycle-secret"
 os.environ["STRIPE_SECRET_KEY"] = "sk_test_placeholder"
 os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_test_secret"
 os.environ["STRIPE_PRICE_STUDENT_MONTHLY"] = "price_student_monthly"
@@ -52,6 +53,9 @@ class FakeStorage:
                     file.write(item["content"])
                 return
         raise FileNotFoundError(key)
+
+    def delete_file(self, key: str) -> None:
+        self.saved = [item for item in self.saved if item["key"] != key]
 
 
 class FakeQueue:

@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     cloudflare_queue_name: str | None = None
     cloudflare_queue_id: str | None = None
     internal_worker_token: str | None = None
+    lifecycle_service_secret: str | None = None
     default_user_email: str = "local@chemvault.extract"
     default_project_name: str = "Default Project"
     worker_step_delay_seconds: float = 1.0
@@ -94,6 +95,9 @@ class Settings(BaseSettings):
     contact_notification_email: str | None = None
     notification_timeout_seconds: float = 10.0
     enable_api_docs: bool = True
+    read_only_mode: bool = False
+    sunset_at: str = "2026-12-31T00:00:00Z"
+    sunset_successor_url: str = "https://lab.chemvault.science"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
