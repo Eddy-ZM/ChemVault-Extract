@@ -10,6 +10,9 @@
     "workers/api-gateway",
     "workers/webhook-delivery"
   ],
+  "overrides": {
+    "postcss": "8.5.15"
+  },
   "scripts": {
     "dev": "npm run dev -w apps/web",
     "build": "npm run build -w apps/web",

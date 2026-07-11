@@ -33,8 +33,9 @@ def get_actor_rate_limit(actor: Any) -> dict[str, int]:
 def enforce_rate_limit(actor: Any, _: Session) -> None:
     limits = get_actor_rate_limit(actor)
     identity = f"api_key:{actor.api_key_id}" if actor.api_key_id else f"user:{actor.user_id}"
-    minute_key = f"chemvault:api-rate:{identity}:m:{int(time.time() // 60)}"
-    day_key = f"chemvault:api-rate:{identity}:d:{int(time.time() // 86400)}"
+    now = _now_seconds()
+    minute_key = f"chemvault:api-rate:{identity}:m:{int(now // 60)}"
+    day_key = f"chemvault:api-rate:{identity}:d:{int(now // 86400)}"
 
     try:
         minute_count, day_count = _increment_redis(minute_key, day_key)
@@ -74,7 +75,7 @@ def _increment_redis(minute_key: str, day_key: str) -> tuple[int, int]:
 
 
 def _increment_fallback(minute_key: str, day_key: str) -> tuple[int, int]:
-    now = int(time.time())
+    now = int(_now_seconds())
     minute_count = _fallback_counts.get(minute_key, (0, now + 90))[0] + 1
     day_count = _fallback_counts.get(day_key, (0, now + 90000))[0] + 1
     _fallback_counts[minute_key] = (minute_count, now + 90)
@@ -83,3 +84,7 @@ def _increment_fallback(minute_key: str, day_key: str) -> tuple[int, int]:
         if expires_at <= now:
             _fallback_counts.pop(key, None)
     return minute_count, day_count
+
+
+def _now_seconds() -> float:
+    return time.time()

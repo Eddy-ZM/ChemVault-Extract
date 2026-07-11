@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.database import Base, SessionLocal, engine
 from fastapi.testclient import TestClient
 
+from app import rate_limit
 from app.main import app
 from app.config import get_settings
 from app.models import (
@@ -578,7 +579,8 @@ def test_v1_document_upload_uses_api_key_scope(api_client, fake_storage, fake_qu
     assert fake_storage.saved[-1]["key"].endswith("/api-upload.txt")
 
 
-def test_v1_rate_limit_is_enforced(api_client):
+def test_v1_rate_limit_is_enforced(api_client, monkeypatch):
+    monkeypatch.setattr(rate_limit, "_now_seconds", lambda: 1_800_000_000.0)
     create_response = api_client.post(
         "/settings/api-keys",
         json={"name": "Rate key", "scopes": ["projects:read"]},
