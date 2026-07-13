@@ -1,6 +1,6 @@
-# ChemVault Python SDK
+# ChemVault Extract Python SDK (retired)
 
-Python SDK for the ChemVault Extract `/v1` developer API.
+The hosted ChemVault Extract `/v1` API has been retired. Current product workflows live in [ChemVault Lab](https://lab.chemvault.science).
 
 Package publishing is not enabled yet. Use local package installation during development:
 
@@ -11,7 +11,10 @@ pip install -e packages/python-sdk
 ```python
 from chemvault import ChemVault, ChemVaultError
 
-client = ChemVault(api_key="cv_live_xxx")
+client = ChemVault(
+    api_key="legacy-self-hosted-key",
+    base_url="http://localhost:8000",
+)
 
 project = client.projects.create(name="Organic synthesis")
 document = client.documents.upload(
@@ -43,4 +46,4 @@ except ChemVaultError as exc:
     print(exc.code, exc.status_code, exc.request_id, exc.details)
 ```
 
-The SDK uses API key authentication and does not bypass plan limits, API scopes, rate limits, evidence validation, or review workflow behavior.
+There is intentionally no hosted default base URL. Use this package only for an explicitly maintained self-hosted legacy deployment. It is not a ChemVault Lab SDK and does not translate API keys into Lab user sessions.

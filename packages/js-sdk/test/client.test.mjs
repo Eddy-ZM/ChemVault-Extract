@@ -2,6 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ChemVault, ChemVaultError } from "../dist/index.js";
 
+test("retired SDK has no dead production API default", () => {
+  assert.throws(
+    () => new ChemVault({ apiKey: "cv_test_secret" }),
+    /Extract API is retired/,
+  );
+});
+
 test("projects.list sends API key auth", async () => {
   const client = new ChemVault({
     apiKey: "cv_test_secret",

@@ -19,10 +19,15 @@ class ChemVault:
         self,
         *,
         api_key: str,
-        base_url: str = "https://api.chemvault.science",
+        base_url: str | None = None,
         timeout: float = 30.0,
         http_client: httpx.Client | None = None,
     ) -> None:
+        if not base_url or not base_url.strip():
+            raise ValueError(
+                "ChemVault Extract API is retired. Provide base_url only for an explicitly maintained "
+                "self-hosted legacy API; use ChemVault Lab for current workflows."
+            )
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self._client = http_client or httpx.Client(timeout=timeout)

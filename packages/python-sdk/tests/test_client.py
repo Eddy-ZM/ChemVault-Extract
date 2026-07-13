@@ -9,6 +9,11 @@ from chemvault import ChemVault
 from chemvault.errors import ChemVaultError
 
 
+def test_retired_sdk_has_no_dead_production_api_default() -> None:
+    with pytest.raises(ValueError, match="Extract API is retired"):
+        ChemVault(api_key="cv_test_secret")
+
+
 def test_projects_list_sends_api_key_auth() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.method == "GET"

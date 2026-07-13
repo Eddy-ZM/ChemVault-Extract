@@ -7,7 +7,7 @@ import { ExportsResource } from "./resources/exports.js";
 
 export type ChemVaultOptions = {
   apiKey: string;
-  baseUrl?: string;
+  baseUrl: string;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
 };
@@ -30,8 +30,13 @@ export class ChemVault {
   exports: ExportsResource;
 
   constructor(options: ChemVaultOptions) {
+    if (!options.baseUrl?.trim()) {
+      throw new Error(
+        "ChemVault Extract API is retired. Provide baseUrl only for an explicitly maintained self-hosted legacy API; use ChemVault Lab for current workflows.",
+      );
+    }
     this.apiKey = options.apiKey;
-    this.baseUrl = (options.baseUrl ?? "https://api.chemvault.science").replace(/\/$/, "");
+    this.baseUrl = options.baseUrl.replace(/\/$/, "");
     this.timeoutMs = options.timeoutMs ?? 30000;
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.projects = new ProjectsResource(this);

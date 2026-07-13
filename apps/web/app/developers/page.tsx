@@ -1,77 +1,54 @@
 import Link from "next/link";
-import { BookOpen, KeyRound, TerminalSquare } from "lucide-react";
+import { Archive, ExternalLink, ShieldX } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/product-ui";
 
-const baseUrl = "https://api.chemvault.science";
+const labUrl = "https://lab.chemvault.science";
 
 export default function DevelopersPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Developers"
-        description="Use the ChemVault API to upload scientific documents, run extraction, query reviewed records, and create exports."
+        title="Extract API retired"
+        description="The hosted Extract API and API-key SDKs have been retired. ChemVault Lab is the supported home for authenticated laboratory workflows."
       />
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TerminalSquare className="size-5 text-blue-600" />
-              Base URL
+              <ShieldX className="size-5 text-amber-600" />
+              Hosted endpoint
             </CardTitle>
-            <CardDescription>Use API keys for server-side integrations.</CardDescription>
+            <CardDescription>Former Extract API requests return HTTP 410 and are never sent to the frozen backend.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <code className="rounded-md bg-muted px-2 py-1 text-sm">{baseUrl}</code>
-          </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <KeyRound className="size-5 text-blue-600" />
-              API keys
+              <ExternalLink className="size-5 text-blue-600" />
+              Supported successor
             </CardTitle>
-            <CardDescription>Create scoped keys and revoke them any time.</CardDescription>
+            <CardDescription>Use ChemVault Lab for upload, analysis, review, search, and export.</CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild>
-              <Link href="/settings/api-keys">Create API key</Link>
+              <Link href={labUrl}>Open ChemVault Lab</Link>
             </Button>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BookOpen className="size-5 text-blue-600" />
-              API docs
+              <Archive className="size-5 text-slate-600" />
+              Recovery only
             </CardTitle>
-            <CardDescription>Endpoint reference with curl and Python examples.</CardDescription>
+            <CardDescription>The legacy SDKs require an explicit self-hosted base URL and are retained only for controlled recovery work.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button asChild variant="outline">
-              <Link href="/docs/api-reference">Open reference</Link>
-            </Button>
-          </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick start</CardTitle>
-          <CardDescription>Upload a document with a key that has documents:write scope.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <pre className="overflow-x-auto rounded-md bg-slate-950 p-4 text-xs text-slate-50">
-{`curl -X POST ${baseUrl}/v1/documents \\
-  -H "Authorization: Bearer cv_live_xxxxx" \\
-  -F "project_id=proj_123" \\
-  -F "file=@paper.pdf"`}
-          </pre>
-        </CardContent>
-      </Card>
     </div>
   );
 }

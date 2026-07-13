@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from app.chunking import build_chunks
 from app.parsers.interface import ParsedBlock
 from app.parsers.registry import parse_document
@@ -148,3 +150,21 @@ def test_chunking_groups_by_section_and_excludes_references():
     assert "References" not in {chunk.section for chunk in chunks}
     assert all(chunk.token_count <= 12 for chunk in chunks)
     assert chunks[0].page_start == 1
+
+
+def test_chunking_respects_budget_for_cjk_and_chemical_notation():
+    blocks = [
+        ParsedBlock(block_type="paragraph", page_number=1, section="Experimental", text="样品在氮气保护下加热至八十摄氏度"),
+        ParsedBlock(block_type="paragraph", page_number=2, section="Experimental", text="CC(=O)OC1=CC=CC=C1C(=O)O Na2SO4"),
+    ]
+
+    chunks = build_chunks(blocks, max_tokens=8)
+
+    assert len(chunks) >= 3
+    assert all(0 < chunk.token_count <= 8 for chunk in chunks)
+    assert "".join(chunk.text.replace(" ", "") for chunk in chunks).startswith("样品在氮气保护下")
+
+
+def test_chunking_rejects_non_positive_budget():
+    with pytest.raises(ValueError, match="max_tokens"):
+        build_chunks([], max_tokens=0)
