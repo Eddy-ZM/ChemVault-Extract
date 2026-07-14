@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { AppShell } from "@/components/app-shell";
 import "./globals.css";
+import "./exhibition-theme.css";
 
 export const metadata: Metadata = {
   title: "ChemVault Extract — AI Scientific Data Extraction",

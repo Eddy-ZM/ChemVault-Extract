@@ -1,0 +1,271 @@
+@font-face {
+  font-family: "CV Inter";
+  src: url("/fonts/inter-400.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "CV Inter";
+  src: url("/fonts/inter-600.ttf") format("truetype");
+  font-weight: 600 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "CV Newsreader";
+  src: url("/fonts/newsreader-500.ttf") format("truetype");
+  font-weight: 500 700;
+  font-display: swap;
+}
+
+:root {
+  --background: 43 24% 93%;
+  --foreground: 218 56% 15%;
+  --card: 40 100% 99%;
+  --card-foreground: 218 56% 15%;
+  --popover: 40 100% 99%;
+  --popover-foreground: 218 56% 15%;
+  --primary: 222 84% 51%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 42 22% 90%;
+  --secondary-foreground: 218 56% 15%;
+  --muted: 42 22% 90%;
+  --muted-foreground: 216 14% 45%;
+  --accent: 221 100% 94%;
+  --accent-foreground: 222 84% 43%;
+  --border: 40 16% 81%;
+  --input: 40 16% 81%;
+  --ring: 222 84% 51%;
+  --radius: 0.625rem;
+  --chemvault-bg: #f4f1e9;
+  --chemvault-surface: #fffdf8;
+  --chemvault-surface-2: #ece8df;
+  --chemvault-text: #10203a;
+  --chemvault-muted: #647084;
+  --chemvault-line: rgba(16, 32, 58, 0.15);
+  --chemvault-strong-line: rgba(16, 32, 58, 0.3);
+  --chemvault-blue: #155eef;
+  --chemvault-blue-dark: #0f4fd6;
+  --chemvault-shadow: 0 18px 42px rgba(7, 17, 31, 0.08);
+}
+
+body {
+  background: #f4f1e9;
+  color: #10203a;
+  font-family: "CV Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+.bg-background {
+  background-color: #f4f1e9;
+}
+
+.site-header,
+.extract-topbar {
+  min-height: 74px;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(7, 17, 31, 0.97);
+  box-shadow: none;
+}
+
+.nav-shell {
+  min-height: 74px;
+}
+
+.brand strong,
+.site-nav a,
+.nav-more summary,
+.extract-topbar,
+.extract-topbar a,
+.extract-topbar .text-muted-foreground {
+  color: #f7f4ec;
+}
+
+.brand small,
+.nav-more,
+.extract-topbar .text-muted-foreground {
+  color: #91a1b2;
+}
+
+.brand-mark,
+.extract-topbar img {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.site-nav a:hover,
+.site-nav a:focus-visible,
+.nav-more summary:hover,
+.nav-more summary:focus-visible {
+  background: rgba(255, 255, 255, 0.07);
+  color: #ffffff;
+}
+
+.site-nav a::after {
+  background: #55d6e8;
+}
+
+.nav-more-menu {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #07111f;
+  box-shadow: none;
+}
+
+.site-action-button {
+  border-radius: 8px;
+}
+
+.site-header .site-action-button:first-child {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f7f4ec;
+}
+
+.site-header .site-action-button:last-child {
+  border-color: #155eef;
+  background: #155eef;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.site-header + div {
+  border-bottom-color: rgba(85, 214, 232, 0.28);
+  background: #0b1a2b;
+  color: #dffaff;
+}
+
+.site-header + div a {
+  color: #ffffff;
+}
+
+.extract-sidebar {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #07111f;
+  box-shadow: none;
+}
+
+.extract-sidebar-brand {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f7f4ec;
+}
+
+.extract-sidebar .text-muted-foreground {
+  color: #91a1b2;
+}
+
+.extract-sidebar nav a {
+  color: #b7c5d1;
+}
+
+.extract-sidebar nav a:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #ffffff;
+}
+
+.extract-sidebar nav a.bg-accent {
+  background: rgba(21, 94, 239, 0.22);
+  color: #ffffff;
+  box-shadow: none;
+  --tw-ring-color: transparent;
+}
+
+.extract-workspace {
+  background: #f4f1e9;
+}
+
+.extract-workspace h1,
+.extract-workspace h2,
+.extract-workspace h3,
+main h1,
+main h2,
+main h3 {
+  font-family: "CV Newsreader", Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -0.018em;
+}
+
+.extract-workspace [class*="bg-card"],
+.extract-workspace [class*="bg-white"],
+main [class*="bg-card"] {
+  background-color: #fffdf8;
+}
+
+.extract-workspace [class*="border-slate-"],
+main [class*="border-slate-"] {
+  border-color: #d8d2c7;
+}
+
+.extract-workspace [class*="rounded-xl"],
+.extract-workspace [class*="rounded-2xl"],
+main [class*="rounded-xl"],
+main [class*="rounded-2xl"] {
+  border-radius: 10px;
+}
+
+.site-footer {
+  border-top-color: rgba(255, 255, 255, 0.12);
+  background: #07111f;
+  color: #aebbc9;
+}
+
+.site-footer a,
+.site-footer strong {
+  color: #fffdf8;
+}
+
+.site-footer [class*="rounded-full"] {
+  border-color: rgba(85, 214, 232, 0.28);
+  background: rgba(85, 214, 232, 0.1);
+  color: #dffaff;
+}
+
+.site-header ~ main {
+  background: #f4f1e9;
+}
+
+.site-header ~ main h1,
+.site-header ~ main h2,
+.site-header ~ main h3 {
+  font-family: "CV Newsreader", Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -0.018em;
+}
+
+.site-header ~ main [class*="rounded-2xl"],
+.site-header ~ main [class*="rounded-xl"] {
+  border-color: #d8d2c7;
+  border-radius: 10px;
+  background-color: #fffdf8;
+  box-shadow: none;
+}
+
+@media (max-width: 760px) {
+  .site-header,
+  .nav-shell,
+  .extract-topbar {
+    min-height: 66px;
+  }
+
+  .nav-shell {
+    gap: 10px;
+    padding-block: 10px;
+  }
+
+  .site-nav {
+    max-width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .site-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .site-nav a,
+  .nav-more summary {
+    min-height: 44px;
+    white-space: nowrap;
+  }
+}

@@ -132,8 +132,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <div className="flex min-h-screen">
-        <aside className="hidden w-64 shrink-0 border-r border-slate-200/80 bg-white/90 backdrop-blur lg:block">
-          <div className="flex h-16 items-center gap-3 border-b border-slate-200/80 px-5">
+        <aside className="extract-sidebar hidden w-64 shrink-0 border-r backdrop-blur lg:block">
+          <div className="extract-sidebar-brand flex h-16 items-center gap-3 border-b px-5">
             <div className="flex size-9 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-white p-1 shadow-sm">
               <img src="/assets/chemvault-logo-mark.png" alt="" className="size-full object-contain" />
             </div>
@@ -163,8 +163,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
         </aside>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur lg:px-8">
+        <div className="extract-workspace flex min-w-0 flex-1 flex-col">
+          <header className="extract-topbar sticky top-0 z-30 flex h-16 items-center justify-between border-b px-4 backdrop-blur lg:px-8">
             <Link href="/dashboard" className="flex items-center gap-3 lg:hidden">
               <div className="flex size-9 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-white p-1 shadow-sm">
                 <img src="/assets/chemvault-logo-mark.png" alt="" className="size-full object-contain" />
