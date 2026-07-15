@@ -220,6 +220,24 @@ main [class*="rounded-2xl"] {
   color: #dffaff;
 }
 
+.brand,
+.site-nav a,
+.nav-more summary,
+.nav-more-menu a,
+.site-action-button,
+.extract-topbar a,
+.extract-topbar button,
+.extract-sidebar nav a,
+.site-footer a,
+main button,
+main a[role="button"],
+main input,
+main select,
+main textarea {
+  min-width: 44px !important;
+  min-height: 44px !important;
+}
+
 .site-header ~ main {
   background: #f4f1e9;
 }
@@ -265,6 +283,7 @@ main [class*="rounded-2xl"] {
 
   .site-nav a,
   .nav-more summary {
+    min-width: 44px;
     min-height: 44px;
     white-space: nowrap;
   }
